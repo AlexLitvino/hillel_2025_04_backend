@@ -9,3 +9,10 @@
 - Formatter
 - Static types checkers
 - LSP (Language Server Protocol)
+
+
+## Lesson 02
+- Iterators
+- Loops
+- Functions
+- `DIGITAL JOURNALS` project discussion/implementation
