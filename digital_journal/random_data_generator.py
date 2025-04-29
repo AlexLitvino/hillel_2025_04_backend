@@ -10,9 +10,10 @@ interests = ["music", "painting", "photo", "cooking", "planting", "dances", "spo
 
 students = []
 
-for _ in range(number_of_students):
+for i in range(number_of_students):
     name = fake.name()
-    student = {"name": name,
+    student = {"id": i + 1,
+               "name": name,
                "marks": [random.randint(1, 12) for i in range(random.randint(5, 9))],
                "info": random.choice(['', f'{random.randint(15, 23)} y.o. Interests: {random.choice(interests)}'])}
     students.append(student)
