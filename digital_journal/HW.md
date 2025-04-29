@@ -1,6 +1,6 @@
 - Project from the lesson is set up
 - `students: list[dict]` global variable exists to simulate the database (_the simulated storage for all the students_)
-  - The `Student` data structure has next feilds
+  - The `Student` data structure has next fields
     - `id: int` - unique identifier of the student
     - `name: str` - student's name
     - `marks: list[int]` - list of marks
