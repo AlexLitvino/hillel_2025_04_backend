@@ -1,18 +1,35 @@
 import json
+import sys
 
-with open('students.json', 'r') as f:
-    storage: list[dict] = json.load(f)
+storage: list[dict] = []  # global variable to keep students list
+
 
 STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show')
 AUXILIARY_COMMANDS = ('help', 'quit')
 COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
 
 
-def get_max_id():
-    return max([student['id'] for student in storage])
+def read_storage_file(file_path):
+    with open(file_path, 'r') as f:
+        storage_content = json.load(f)
+    return storage_content
+
+
+def save_storage_file(file_path):
+    with open(file_path, 'w') as f:
+        json.dump(storage, f, indent=4)
+
+
+def get_next_id():
+    """Returns id to assign for the next student"""
+    if len(storage) == 0:
+        return 1
+    else:
+        return max([student['id'] for student in storage]) + 1
 
 
 def get_string_of_marks(student):
+    """Returns string of student's marks separated by space"""
     return " ".join([str(i) for i in student["marks"]])
 
 
@@ -31,7 +48,7 @@ def parse_add_student_input(add_student_input:str):
 
 
 def add_student(name: str, marks: list[int], details: str | None):
-    student = {"id": get_max_id() + 1,
+    student = {"id": get_next_id(),
                "name": name,
                "marks": [],
                "info": details if details else ""}
@@ -70,20 +87,38 @@ def show_student_info_handler():
 
 
 def show_students():
-    for student in storage:
-        print('===================\n'
-              f'{student["id"]}. {student["name"]}\n'
-              f'Marks: {get_string_of_marks(student)}')
+    if len(storage) > 0:
+        for student in storage:
+            print('===================\n'
+                  f'{student["id"]}. {student["name"]}\n'
+                  f'Marks: {get_string_of_marks(student)}')
+    else:
+        print("No students are added at the moment")
     print()
 
 
 def main():
     print("Welcome to DIGITAL JOURNAL APP\n")
 
+    if len(sys.argv) == 1:
+        storage_file_path = 'students.json'
+    elif len(sys.argv) == 2:
+        storage_file_path = sys.argv[1]
+    else:
+        print('Digital Journal App takes no parameters or 1 parameter for file path')
+        sys.exit(1)
+
+    global storage
+    try:
+        storage = read_storage_file(storage_file_path)
+    except FileNotFoundError:
+        print("New storage file will be created\n")
+
     while True:
         command = input(f"Enter one of the commands: {COMMAND_LIST}: ").strip().lower()
         match command:
             case 'quit':
+                save_storage_file(storage_file_path)  # TODO: if storage wasn't changed no reason to re-save file
                 break
             case 'help':
                 print_help()
