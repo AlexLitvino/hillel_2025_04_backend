@@ -4,7 +4,7 @@ import sys
 storage: list[dict] = []  # global variable to keep students list
 
 
-STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show')
+STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove')
 AUXILIARY_COMMANDS = ('help', 'quit')
 COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
 
@@ -33,11 +33,6 @@ def get_string_of_marks(student):
     return " ".join([str(i) for i in student["marks"]])
 
 
-def print_help():
-    print('This is Digital Journal App\n'
-          'It helps to manage students assessment\n')
-
-
 def parse_add_student_input(add_student_input:str):
     if add_student_input.count(';') == 0:
         name = add_student_input
@@ -47,6 +42,9 @@ def parse_add_student_input(add_student_input:str):
     return name.strip(), details.strip()
 
 
+# ######################################################################################################################
+# CRUD
+# ######################################################################################################################
 def add_student(name: str, marks: list[int], details: str | None):
     student = {"id": get_next_id(),
                "name": name,
@@ -54,6 +52,38 @@ def add_student(name: str, marks: list[int], details: str | None):
                "info": details if details else ""}
     storage.append(student)
 
+
+def show_students():
+    if len(storage) > 0:
+        for student in storage:
+            print('===================\n'
+                  f'{student["id"]}. {student["name"]}\n'
+                  f'Marks: {get_string_of_marks(student)}')
+    else:
+        print("No students are added at the moment")
+    print()
+
+
+def show_student(id_: int):
+    student = [student for student in storage if student['id'] == id_][0]
+    print('===================\n'
+          f'{student["name"]}\n'
+          f'Marks: {get_string_of_marks(student)}\n'
+          f'Information: {student["info"]}\n')
+
+def remove_student(id_: int):
+    for index, student in enumerate(storage):
+        if student['id'] == id_:
+            del storage[index]
+            break
+
+
+# ######################################################################################################################
+# Command handlers
+# ######################################################################################################################
+def help_handler():
+    print('This is Digital Journal App\n'
+          'It helps to manage students assessment\n')
 
 def add_student_handler():
     ask_prompt = "Enter student's payload data using text template (name is obligatory field, details is optional field)\n" \
@@ -67,12 +97,16 @@ def add_student_handler():
     print()
 
 
-def show_student(id_: int):
-    student = [student for student in storage if student['id'] == id_][0]
-    print('===================\n'
-          f'{student["name"]}\n'
-          f'Marks: {get_string_of_marks(student)}\n'
-          f'Information: {student["info"]}\n')
+def remove_student_handler():
+    try:
+        id_ = int(input("Enter student's id to remove: "))
+        if id_ in [student["id"] for student in storage]:
+            remove_student(id_)
+            print()
+        else:
+            print(f"Student with id={id_} is missing in the students list\n")
+    except ValueError:
+        print("Entered value is not valid student id. It should be integer\n")
 
 
 def show_student_info_handler():
@@ -86,15 +120,7 @@ def show_student_info_handler():
         print("Entered value is not valid student id. It should be integer\n")
 
 
-def show_students():
-    if len(storage) > 0:
-        for student in storage:
-            print('===================\n'
-                  f'{student["id"]}. {student["name"]}\n'
-                  f'Marks: {get_string_of_marks(student)}')
-    else:
-        print("No students are added at the moment")
-    print()
+
 
 
 def main():
@@ -121,13 +147,15 @@ def main():
                 save_storage_file(storage_file_path)  # TODO: if storage wasn't changed no reason to re-save file
                 break
             case 'help':
-                print_help()
+                help_handler()
             case 'add':
                 add_student_handler()
             case 'show':
                 show_student_info_handler()
             case 'show all':
                 show_students()
+            case 'remove':
+                remove_student_handler()
             case _:
                 print("Unknown command\n")
 
