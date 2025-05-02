@@ -34,21 +34,27 @@ def get_string_of_marks(student):
 
 
 def parse_add_student_input(add_student_input:str):
-    if add_student_input.count(';') == 0:
-        name = add_student_input
-        details = ''
+    if add_student_input.count(';') == 2:
+        raw_name, raw_marks, raw_details = add_student_input.split(';')
+        if raw_marks.strip() == '':
+            marks = None
+        else:
+            try:
+                marks = [int(mark) for mark in raw_marks.split(',')]
+            except ValueError:
+                return None
+        return raw_name.strip(), marks, raw_details.strip()
     else:
-        name, details = add_student_input.split(';')
-    return name.strip(), details.strip()
+        return None
 
 
 # ######################################################################################################################
 # CRUD
 # ######################################################################################################################
-def add_student(name: str, marks: list[int], details: str | None):
+def add_student(name: str, marks: list[int] | None, details: str | None):
     student = {"id": get_next_id(),
                "name": name,
-               "marks": [],
+               "marks": marks if marks else [],
                "info": details if details else ""}
     storage.append(student)
 
@@ -87,13 +93,14 @@ def help_handler():
 
 def add_student_handler():
     ask_prompt = "Enter student's payload data using text template (name is obligatory field, details is optional field)\n" \
-                 "John Doe;Some details about John:\n"
+                 "John Doe;1,2,3,4,5;Some details about John:\n"
     add_student_input = input(ask_prompt).strip()
-    if add_student_input.count(';') > 1:
-        print("Student's payload data could contain one or zero semicolon")
+    parsed_student_data = parse_add_student_input(add_student_input)
+    if parsed_student_data:
+        add_student(*parsed_student_data)
+        print('New student added\n')
     else:
-        name, details = parse_add_student_input(add_student_input)
-        add_student(name, marks=None, details=details)  # TODO: no need to pass marks?
+        print("Input string couldn't be parsed. Please check format\n")
     print()
 
 
@@ -118,9 +125,6 @@ def show_student_info_handler():
             print(f"Student with id={id_} is missing in the students list\n")
     except ValueError:
         print("Entered value is not valid student id. It should be integer\n")
-
-
-
 
 
 def main():
