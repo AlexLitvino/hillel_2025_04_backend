@@ -4,7 +4,7 @@ import sys
 storage: list[dict] = []  # global variable to keep students list
 
 
-STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove')
+STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove', 'grade')
 AUXILIARY_COMMANDS = ('help', 'quit')
 COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
 
@@ -83,6 +83,9 @@ def remove_student(id_: int):
             del storage[index]
             break
 
+def add_mark(id_: int, mark: int):
+    student = [student for student in storage if student['id'] == id_][0]
+    student['marks'].append(mark)
 
 # ######################################################################################################################
 # Command handlers
@@ -127,6 +130,24 @@ def show_student_info_handler():
         print("Entered value is not valid student id. It should be integer\n")
 
 
+def grade_student_handler():
+    try:
+        id_ = int(input("Enter student's id to add mark: "))
+        if id_ in [student["id"] for student in storage]:
+            try:
+                mark = int(input("Enter new mark for student [1-12]: "))
+                if not 1 <= mark <= 12:
+                    raise ValueError
+                add_mark(id_, mark)
+                print()
+            except ValueError:
+                print("Mark should be integer from 1 to 12\n")
+        else:
+            print(f"Student with id={id_} is missing in the students list\n")
+    except ValueError:
+        print("Entered value is not valid student id. It should be integer\n")
+
+
 def main():
     print("Welcome to DIGITAL JOURNAL APP\n")
 
@@ -160,6 +181,8 @@ def main():
                 show_students()
             case 'remove':
                 remove_student_handler()
+            case 'grade':
+                grade_student_handler()
             case _:
                 print("Unknown command\n")
 
