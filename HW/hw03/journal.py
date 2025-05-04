@@ -4,7 +4,7 @@ import sys
 storage: list[dict] = []  # global variable to keep students list
 
 
-STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove', 'grade')
+STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove', 'grade', 'update')
 AUXILIARY_COMMANDS = ('help', 'quit')
 COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
 
@@ -77,15 +77,25 @@ def show_student(id_: int):
           f'Marks: {get_string_of_marks(student)}\n'
           f'Information: {student["info"]}\n')
 
+
 def remove_student(id_: int):
     for index, student in enumerate(storage):
         if student['id'] == id_:
             del storage[index]
             break
 
+
 def add_mark(id_: int, mark: int):
     student = [student for student in storage if student['id'] == id_][0]
     student['marks'].append(mark)
+
+
+def update_student(id_, name=None, info=None):
+    student = [student for student in storage if student['id'] == id_][0]
+    if name:
+        student['name'] = name
+    if info:
+        student['info'] = info
 
 # ######################################################################################################################
 # Command handlers
@@ -148,6 +158,24 @@ def grade_student_handler():
         print("Entered value is not valid student id. It should be integer\n")
 
 
+def update_student_handler():
+    try:
+        id_ = int(input("Enter student's id to update: "))
+        if id_ in [student["id"] for student in storage]:
+            student = [student for student in storage if student['id'] == id_][0]  # TODO: might be removed after refactoring
+            name = input(f'Enter new name to update {student["name"]}. Press Enter to skip: ').strip()
+            name = name if name else None
+
+            info = input('Enter new info to update. Press Enter to skip: ').strip()  # TODO: update with validation logic
+            info = info if info else None
+
+            update_student(id_, name, info)
+        else:
+            print(f"Student with id={id_} is missing in the students list\n")
+    except ValueError:
+        print("Entered value is not valid student id. It should be integer\n")
+
+
 def main():
     print("Welcome to DIGITAL JOURNAL APP\n")
 
@@ -183,6 +211,8 @@ def main():
                 remove_student_handler()
             case 'grade':
                 grade_student_handler()
+            case 'update':
+                update_student_handler()
             case _:
                 print("Unknown command\n")
 
