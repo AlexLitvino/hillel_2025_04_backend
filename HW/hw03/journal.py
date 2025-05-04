@@ -1,4 +1,5 @@
 import json
+import operator
 import sys
 
 storage: list[dict] = []  # global variable to keep students list
@@ -8,6 +9,10 @@ STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove', 'grade', 'up
 AUXILIARY_COMMANDS = ('help', 'quit')
 COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
 
+
+# ######################################################################################################################
+# Helpers
+# ######################################################################################################################
 
 def read_storage_file(file_path):
     with open(file_path, 'r') as f:
@@ -25,7 +30,7 @@ def get_next_id():
     if len(storage) == 0:
         return 1
     else:
-        return max([student['id'] for student in storage]) + 1
+        return max(storage, key=operator.itemgetter("id"))["id"] + 1  # optimized to get existing max id
 
 
 def get_string_of_marks(student):
@@ -47,6 +52,19 @@ def parse_add_student_input(add_student_input:str):
     else:
         return None
 
+
+def search_student(raw_id):
+    try:
+        id_ = int(raw_id)
+        for index, student in enumerate(storage):
+            if id_ == student['id']:
+                return index, student
+        else:
+            print(f"Student with id={id_} is missing in the students list\n")
+            return None
+    except ValueError:
+        print("Entered value is not valid student id. It should be integer\n")
+        return None
 
 # ######################################################################################################################
 # CRUD
@@ -109,20 +127,6 @@ def add_student_handler():
     else:
         print("Input string couldn't be parsed. Please check format\n")
     print()
-
-
-def search_student(raw_id):
-    try:
-        id_ = int(raw_id)
-        for index, student in enumerate(storage):
-            if id_ == student['id']:
-                return index, student
-        else:
-            print(f"Student with id={id_} is missing in the students list\n")
-            return None
-    except ValueError:
-        print("Entered value is not valid student id. It should be integer\n")
-        return None
 
 
 def remove_student_handler():
