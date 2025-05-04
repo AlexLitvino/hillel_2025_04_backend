@@ -70,28 +70,22 @@ def show_students():
     print()
 
 
-def show_student(id_: int):
-    student = [student for student in storage if student['id'] == id_][0]
+def show_student(student: dict):
     print('===================\n'
           f'{student["name"]}\n'
           f'Marks: {get_string_of_marks(student)}\n'
           f'Information: {student["info"]}\n')
 
 
-def remove_student(id_: int):
-    for index, student in enumerate(storage):
-        if student['id'] == id_:
-            del storage[index]
-            break
+def remove_student(index: int):
+    del storage[index]
 
 
-def add_mark(id_: int, mark: int):
-    student = [student for student in storage if student['id'] == id_][0]
+def add_mark(student: dict, mark: int):
     student['marks'].append(mark)
 
 
-def update_student(id_, name=None, info=None):
-    student = [student for student in storage if student['id'] == id_][0]
+def update_student(student, name=None, info=None):
     if name:
         student['name'] = name
     if info:
@@ -117,63 +111,65 @@ def add_student_handler():
     print()
 
 
-def remove_student_handler():
+def search_student(raw_id):
     try:
-        id_ = int(input("Enter student's id to remove: "))
-        if id_ in [student["id"] for student in storage]:
-            remove_student(id_)
-            print()
+        id_ = int(raw_id)
+        for index, student in enumerate(storage):
+            if id_ == student['id']:
+                return index, student
         else:
             print(f"Student with id={id_} is missing in the students list\n")
+            return None
     except ValueError:
         print("Entered value is not valid student id. It should be integer\n")
+        return None
+
+
+def remove_student_handler():
+    raw_id = int(input("Enter student's id to remove: "))
+    student_pair = search_student(raw_id)
+    if student_pair:
+        index, _ = student_pair
+        remove_student(index)
+        print()
 
 
 def show_student_info_handler():
-    try:
-        id_ = int(input("Enter student's id to display info: "))
-        if id_ in [student["id"] for student in storage]:
-            show_student(id_)
-        else:
-            print(f"Student with id={id_} is missing in the students list\n")
-    except ValueError:
-        print("Entered value is not valid student id. It should be integer\n")
+    raw_id = input("Enter student's id to display info: ")
+    student_pair = search_student(raw_id)
+    if student_pair:
+        _, student = student_pair
+        show_student(student)
 
 
 def grade_student_handler():
-    try:
-        id_ = int(input("Enter student's id to add mark: "))
-        if id_ in [student["id"] for student in storage]:
-            try:
-                mark = int(input("Enter new mark for student [1-12]: "))
-                if not 1 <= mark <= 12:
-                    raise ValueError
-                add_mark(id_, mark)
-                print()
-            except ValueError:
-                print("Mark should be integer from 1 to 12\n")
-        else:
-            print(f"Student with id={id_} is missing in the students list\n")
-    except ValueError:
-        print("Entered value is not valid student id. It should be integer\n")
+    raw_id = input("Enter student's id to add mark: ")
+    student_pair = search_student(raw_id)
+    if student_pair:
+        _, student = student_pair
+        try:
+            mark = int(input("Enter new mark for student [1-12]: "))
+            if not 1 <= mark <= 12:
+                raise ValueError
+            add_mark(student, mark)
+            print()
+        except ValueError:
+            print("Mark should be integer from 1 to 12\n")
 
 
 def update_student_handler():
-    try:
-        id_ = int(input("Enter student's id to update: "))
-        if id_ in [student["id"] for student in storage]:
-            student = [student for student in storage if student['id'] == id_][0]  # TODO: might be removed after refactoring
-            name = input(f'Enter new name to update {student["name"]}. Press Enter to skip: ').strip()
-            name = name if name else None
+    raw_id = input("Enter student's id to update: ")
+    student_pair = search_student(raw_id)
+    if student_pair:
+        _, student = student_pair
+        name = input(f'Enter new name to update {student["name"]}. Press Enter to skip: ').strip()
+        name = name if name else None
 
-            info = input('Enter new info to update. Press Enter to skip: ').strip()  # TODO: update with validation logic
-            info = info if info else None
+        info = input('Enter new info to update. Press Enter to skip: ').strip()  # TODO: update with validation logic
+        info = info if info else None
 
-            update_student(id_, name, info)
-        else:
-            print(f"Student with id={id_} is missing in the students list\n")
-    except ValueError:
-        print("Entered value is not valid student id. It should be integer\n")
+        update_student(student, name, info)
+        print()
 
 
 def main():
