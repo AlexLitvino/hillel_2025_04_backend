@@ -104,9 +104,9 @@ def add_mark(student: dict, mark: int):
 
 
 def update_student(student, name=None, info=None):
-    if name:
+    if name is not None:
         student['name'] = name
-    if info:
+    if info is not None:
         student['info'] = info
 
 # ######################################################################################################################
@@ -166,11 +166,15 @@ def update_student_handler():
     student_pair = search_student(raw_id)
     if student_pair:
         _, student = student_pair
-        name = input(f'Enter new name to update {student["name"]}. Press Enter to skip: ').strip()
-        name = name if name else None
+        name = input(f"Enter new name to update '{student['name']}'. Enter 'no' to skip: ").strip()
+        name = None if name.strip().lower() == 'no' else name
 
-        info = input('Enter new info to update. Press Enter to skip: ').strip()  # TODO: update with validation logic
-        info = info if info else None
+        print(f"Current student info: '{student['info']}'")
+        info = input("Enter new info to modify. Start with '+' symbol if you want to append. Enter 'no' to skip: ").strip()  # TODO: update with validation logic
+        if info.strip().lower() == 'no':
+            info = None
+        if info is not None and info.startswith('+'):
+            info = f"{student['info']} {info[1:]}"  # cut '+' symbol from input
 
         update_student(student, name, info)
         print()
