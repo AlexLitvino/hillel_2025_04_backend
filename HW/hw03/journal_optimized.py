@@ -150,6 +150,7 @@ def grade_student_handler():
             if not 1 <= mark <= 12:
                 raise ValueError
             add_mark(student, mark)
+            print(f"Updated marks for {student['name']}: {get_string_of_marks(student)}")
             print()
         except ValueError:
             print("Mark should be integer from 1 to 12\n")
