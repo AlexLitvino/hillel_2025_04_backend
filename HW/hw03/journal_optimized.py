@@ -14,13 +14,13 @@ COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
 # Helpers
 # ######################################################################################################################
 
-def read_storage_file(file_path):
+def read_storage_file(file_path: str):
     with open(file_path, 'r') as f:
         storage_content = json.load(f)
     return storage_content
 
 
-def save_storage_file(file_path):
+def save_storage_file(file_path: str):
     with open(file_path, 'w') as f:
         json.dump(storage, f, indent=4)
 
@@ -33,12 +33,12 @@ def get_next_id():
         return str(max([int(key) for key in storage.keys()]) + 1)
 
 
-def get_string_of_marks(student):
+def get_string_of_marks(student: dict):
     """Returns string of student's marks separated by space"""
     return " ".join([str(i) for i in student["marks"]])
 
 
-def parse_add_student_input(add_student_input:str):
+def parse_add_student_input(add_student_input: str):
     if add_student_input.count(';') == 2:
         raw_name, raw_marks, raw_details = add_student_input.split(';')
         if raw_marks.strip() == '':
@@ -53,7 +53,7 @@ def parse_add_student_input(add_student_input:str):
         return None
 
 
-def search_student(raw_id):
+def search_student(raw_id: str):
     student = storage.get(raw_id)
     if student is None:
         print(f"Student with id={raw_id} is missing in the students list\n")
@@ -97,7 +97,7 @@ def add_mark(student: dict, mark: int):
     student['marks'].append(mark)
 
 
-def update_student(student, name=None, info=None):
+def update_student(student: dict, name: str|None=None, info: str|None=None):
     if name is not None:
         student['name'] = name
     if info is not None:
