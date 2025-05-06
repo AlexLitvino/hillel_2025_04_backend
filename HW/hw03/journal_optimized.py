@@ -106,8 +106,18 @@ def update_student(student: dict, name: str|None=None, info: str|None=None):
 # Command handlers
 # ######################################################################################################################
 def help_handler():
-    print('This is Digital Journal App\n'
-          'It helps to manage students assessment\n')
+    print('Welcome to DIGITAL JOURNAL APP\n'
+          'It helps to manage students assessment\n'
+          'The following commands are available:\n\n'
+          'show all - lists all students (only names and marks will be displayed)\n'
+          'show - shows record for specific student (all information will be displayed)\n'
+          'add - adds new student to journal (it is required to enter name and optionally marks from paper journal and information about student could be entered)\n'
+          'remove - removes student from journal\n'
+          'grade - adds new mark for student\n'
+          'update - updates name or/and information about student\n'
+          'help - displays this help\n'
+          'quit - quit the application\n')
+
 
 def add_student_handler():
     ask_prompt = "Enter student's payload data using text template (name is obligatory field, details is optional field)\n" \
@@ -191,7 +201,7 @@ def update_student_handler():
 
 
 def main():
-    print("Welcome to DIGITAL JOURNAL APP\n")
+    help_handler()
 
     if len(sys.argv) == 1:
         storage_file_path = 'students_optimized.json'
