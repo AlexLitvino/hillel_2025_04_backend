@@ -76,10 +76,9 @@ def show_students():
         for key, student in storage.items():
             print('===================\n'
                   f'{key}. {student["name"]}\n'
-                  f'Marks: {get_string_of_marks(student)}')
+                  f'Marks: {get_string_of_marks(student)}\n')
     else:
-        print("No students are added at the moment")
-    print()
+        print("No students are added at the moment\n")
 
 
 def show_student(student: dict):
@@ -116,11 +115,14 @@ def add_student_handler():
     add_student_input = input(ask_prompt).strip()
     parsed_student_data = parse_add_student_input(add_student_input)
     if parsed_student_data:
-        add_student(*parsed_student_data)
-        print('New student added\n')
+        answer = input('Would you like to add new student? [y|yes / n|no]: ').strip().lower()
+        if answer in ('y', 'yes'):
+            add_student(*parsed_student_data)
+            print('New student added\n')
+        else:
+            print('Action was cancelled\n')
     else:
         print("Input string couldn't be parsed. Please check format\n")
-    print()
 
 
 def remove_student_handler():
@@ -128,8 +130,12 @@ def remove_student_handler():
     student_pair = search_student(raw_id)
     if student_pair:
         id_, _ = student_pair
-        remove_student(id_)
-        print('Student was removed\n')
+        answer = input('Would you like to remove student? [y|yes / n|no]: ').strip().lower()
+        if answer in ('y', 'yes'):
+            remove_student(id_)
+            print('Student was removed\n')
+        else:
+            print('Action was cancelled\n')
 
 
 def show_student_info_handler():
@@ -149,9 +155,14 @@ def grade_student_handler():
             mark = int(input("Enter new mark for student [1-12]: "))
             if not 1 <= mark <= 12:
                 raise ValueError('Entered mark not in a range 1-12')
-            add_mark(student, mark)
-            print(f"Updated marks for {student['name']}: {get_string_of_marks(student)}")
-            print()
+
+            answer = input('Would you like to add new mark for student? [y|yes / n|no]: ').strip().lower()
+            if answer in ('y', 'yes'):
+                add_mark(student, mark)
+                print(f"Updated marks for {student['name']}: {get_string_of_marks(student)}\n")
+            else:
+                print('Action was cancelled\n')
+
         except ValueError:
             print("Mark should be integer from 1 to 12\n")
 
@@ -171,8 +182,12 @@ def update_student_handler():
         if info is not None and info.startswith('+'):
             info = f"{student['info']} {info[1:]}"  # cut '+' symbol from input
 
-        update_student(student, name, info)
-        print()
+        answer = input("Would you like to update student's name/info? [y|yes / n|no]: ").strip().lower()
+        if answer in ('y', 'yes'):
+            update_student(student, name, info)
+            print(f"Student record was updated\n")
+        else:
+            print('Action was cancelled\n')
 
 
 def main():
