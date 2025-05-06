@@ -2,7 +2,7 @@ import json
 import operator
 import sys
 
-storage: list[dict] = []  # global variable to keep students list
+storage: dict[str, dict] = {}  # global variable to keep students list
 
 
 STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove', 'grade', 'update')
@@ -28,9 +28,9 @@ def save_storage_file(file_path: str):
 def get_next_id():
     """Returns id to assign for the next student"""
     if len(storage) == 0:
-        return 1
+        return "1"
     else:
-        return max(storage, key=operator.itemgetter("id"))["id"] + 1  # optimized to get existing max id
+        return str(max([int(key) for key in storage.keys()]) + 1)
 
 
 def get_string_of_marks(student: dict):
@@ -54,34 +54,28 @@ def parse_add_student_input(add_student_input: str):
 
 
 def search_student(raw_id: str):
-    try:
-        id_ = int(raw_id)
-        for index, student in enumerate(storage):
-            if id_ == student['id']:
-                return index, student
-        else:
-            print(f"Student with id={id_} is missing in the students list\n")
-            return None
-    except ValueError:
-        print("Entered value is not valid student id. It should be integer\n")
+    student = storage.get(raw_id)
+    if student is None:
+        print(f"Student with id={raw_id} is missing in the students list\n")
         return None
+    else:
+        return raw_id, student
 
 # ######################################################################################################################
 # CRUD
 # ######################################################################################################################
 def add_student(name: str, marks: list[int] | None, details: str | None):
-    student = {"id": get_next_id(),
-               "name": name,
+    student = {"name": name,
                "marks": marks if marks else [],
                "info": details if details else ""}
-    storage.append(student)
+    storage[get_next_id()] = student
 
 
 def show_students():
     if len(storage) > 0:
-        for student in storage:
+        for key, student in storage.items():
             print('===================\n'
-                  f'{student["id"]}. {student["name"]}\n'
+                  f'{key}. {student["name"]}\n'
                   f'Marks: {get_string_of_marks(student)}\n')
     else:
         print("No students are added at the moment\n")
@@ -94,15 +88,15 @@ def show_student(student: dict):
           f'Information: {student["info"]}\n')
 
 
-def remove_student(index: int):
-    del storage[index]
+def remove_student(id_: str):
+    del storage[id_]
 
 
 def add_mark(student: dict, mark: int):
     student['marks'].append(mark)
 
 
-def update_student(student: dict, name: str| None=None, info: str| None=None):
+def update_student(student: dict, name: str|None=None, info: str|None=None):
     if name is not None:
         student['name'] = name
     if info is not None:
@@ -124,6 +118,7 @@ def help_handler():
           'help - displays this help\n'
           'quit - quit the application\n')
 
+
 def add_student_handler():
     ask_prompt = "Enter student's payload data using text template (name is obligatory field, details is optional field)\n" \
                  "John Doe;1,2,3,4,5;Some details about John:\n"
@@ -141,20 +136,20 @@ def add_student_handler():
 
 
 def remove_student_handler():
-    raw_id = input("Enter student's id to remove: ")
+    raw_id = input("Enter student's id to remove: ").strip()
     student_pair = search_student(raw_id)
     if student_pair:
-        index, _ = student_pair
+        id_, _ = student_pair
         answer = input('Would you like to remove student? [y|yes / n|no]: ').strip().lower()
         if answer in ('y', 'yes'):
-            remove_student(index)
+            remove_student(id_)
             print('Student was removed\n')
         else:
             print('Action was cancelled\n')
 
 
 def show_student_info_handler():
-    raw_id = input("Enter student's id to display info: ")
+    raw_id = input("Enter student's id to display info: ").strip()
     student_pair = search_student(raw_id)
     if student_pair:
         _, student = student_pair
@@ -162,7 +157,7 @@ def show_student_info_handler():
 
 
 def grade_student_handler():
-    raw_id = input("Enter student's id to add mark: ")
+    raw_id = input("Enter student's id to add mark: ").strip()
     student_pair = search_student(raw_id)
     if student_pair:
         _, student = student_pair
@@ -183,7 +178,7 @@ def grade_student_handler():
 
 
 def update_student_handler():
-    raw_id = input("Enter student's id to update: ")
+    raw_id = input("Enter student's id to update: ").strip()
     student_pair = search_student(raw_id)
     if student_pair:
         _, student = student_pair
@@ -209,7 +204,7 @@ def main():
     help_handler()
 
     if len(sys.argv) == 1:
-        storage_file_path = 'students.json'
+        storage_file_path = 'students_optimized.json'
     elif len(sys.argv) == 2:
         storage_file_path = sys.argv[1]
     else:
