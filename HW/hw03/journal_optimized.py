@@ -148,7 +148,7 @@ def grade_student_handler():
         try:
             mark = int(input("Enter new mark for student [1-12]: "))
             if not 1 <= mark <= 12:
-                raise ValueError
+                raise ValueError('Entered mark not in a range 1-12')
             add_mark(student, mark)
             print(f"Updated marks for {student['name']}: {get_string_of_marks(student)}")
             print()
