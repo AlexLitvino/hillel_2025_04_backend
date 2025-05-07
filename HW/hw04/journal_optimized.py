@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 import csv
 import json
-import operator
 import sys
 
 storage: dict[str, dict] = {}  # global variable to keep students list
