@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import json
 import operator
 import sys
@@ -8,6 +9,33 @@ storage: dict[str, dict] = {}  # global variable to keep students list
 STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove', 'grade', 'update')
 AUXILIARY_COMMANDS = ('help', 'quit')
 COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
+
+
+# ######################################################################################################################
+# Infrastructure
+# ######################################################################################################################
+
+class AbstractRepository(ABC):
+    def read_storage(self):
+        pass
+
+    def write_storage(self):
+        pass
+
+    def add_student(self, student: dict):
+        pass
+
+    def get_student(self, id_: int):
+        pass
+
+    def update_student(self, id_: int, data: dict):
+        pass
+
+    def delete_student(self, id_: int):
+        pass
+
+    def add_mark(self, id_: int, mark: int):
+        pass
 
 
 # ######################################################################################################################
