@@ -3,7 +3,7 @@ import csv
 import json
 import sys
 
-storage: dict[str, dict] = {}  # global variable to keep students list
+#storage: dict[str, dict] = {}  # global variable to keep students list
 
 
 STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove', 'grade', 'update')
@@ -27,6 +27,10 @@ class AbstractRepository(ABC):
 
     @abstractmethod
     def add_student(self, student: dict):
+        pass
+
+    @abstractmethod
+    def get_all_students(self):
         pass
 
     @abstractmethod
@@ -84,6 +88,9 @@ class Repository(AbstractRepository):
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writerow({'id': key, 'name': student['name'], 'info': student['info'], 'marks': ','.join(student['marks'])})
 
+    def get_all_students(self):
+        return self.students
+
     def get_student(self, id_: int):
         return self.students[id_]
 
@@ -102,27 +109,30 @@ class Repository(AbstractRepository):
         self.students[id_]['marks'].append(mark)
         self._write_storage()
 
+    def __len__(self):
+        return len(self.students)
+
 # ######################################################################################################################
 # Helpers
 # ######################################################################################################################
 
-def read_storage_file(file_path: str):
-    with open(file_path, 'r') as f:
-        storage_content = json.load(f)
-    return storage_content
-
-
-def save_storage_file(file_path: str):
-    with open(file_path, 'w') as f:
-        json.dump(storage, f, indent=4)
-
-
-def get_next_id():
-    """Returns id to assign for the next student"""
-    if len(storage) == 0:
-        return "1"
-    else:
-        return str(max([int(key) for key in storage.keys()]) + 1)
+# def read_storage_file(file_path: str):
+#     with open(file_path, 'r') as f:
+#         storage_content = json.load(f)
+#     return storage_content
+#
+#
+# def save_storage_file(file_path: str):
+#     with open(file_path, 'w') as f:
+#         json.dump(storage, f, indent=4)
+#
+#
+# def get_next_id():
+#     """Returns id to assign for the next student"""
+#     if len(storage) == 0:
+#         return "1"
+#     else:
+#         return str(max([int(key) for key in storage.keys()]) + 1)
 
 
 def get_string_of_marks(student: dict):
@@ -140,7 +150,7 @@ def parse_add_student_input(add_student_input: str):
                 marks = [int(mark) for mark in raw_marks.split(',')]
             except ValueError:
                 return None
-        return raw_name.strip(), marks, raw_details.strip()
+        return {'name': raw_name.strip(), 'marks': marks, 'info': raw_details.strip()}
     else:
         return None
 
@@ -156,43 +166,48 @@ def search_student(raw_id: str):
 # ######################################################################################################################
 # CRUD
 # ######################################################################################################################
-def add_student(name: str, marks: list[int] | None, details: str | None):
-    student = {"name": name,
-               "marks": marks if marks else [],
-               "info": details if details else ""}
-    storage[get_next_id()] = student
+class StudentService:
+
+    def __init__(self, repository: AbstractRepository):
+        self.repository = repository
+    def add_student(self, name: str, marks: list[int] | None, details: str | None):
+        student = {"name": name,
+                   "marks": marks if marks else [],
+                   "info": details if details else ""}
+        #storage[get_next_id()] = student
+        self.repository.add_student(student)
 
 
-def show_students():
-    if len(storage) > 0:
-        for key, student in storage.items():
-            print('===================\n'
-                  f'{key}. {student["name"]}\n'
-                  f'Marks: {get_string_of_marks(student)}\n')
-    else:
-        print("No students are added at the moment\n")
+    def show_students(self):
+        if len(self.repository) > 0:
+            for key, student in self.repository.get_all_students():
+                print('===================\n'
+                      f'{key}. {student["name"]}\n'
+                      f'Marks: {get_string_of_marks(student)}\n')
+        else:
+            print("No students are added at the moment\n")
 
 
-def show_student(student: dict):
-    print('===================\n'
-          f'{student["name"]}\n'
-          f'Marks: {get_string_of_marks(student)}\n'
-          f'Information: {student["info"]}\n')
+    def show_student(student: dict):
+        print('===================\n'
+              f'{student["name"]}\n'
+              f'Marks: {get_string_of_marks(student)}\n'
+              f'Information: {student["info"]}\n')
 
 
-def remove_student(id_: str):
-    del storage[id_]
+    def remove_student(id_: str):
+        del storage[id_]
 
 
-def add_mark(student: dict, mark: int):
-    student['marks'].append(mark)
+    def add_mark(student: dict, mark: int):
+        student['marks'].append(mark)
 
 
-def update_student(student: dict, name: str|None=None, info: str|None=None):
-    if name is not None:
-        student['name'] = name
-    if info is not None:
-        student['info'] = info
+    def update_student(student: dict, name: str|None=None, info: str|None=None):
+        if name is not None:
+            student['name'] = name
+        if info is not None:
+            student['info'] = info
 
 # ######################################################################################################################
 # Command handlers
@@ -211,7 +226,7 @@ def help_handler():
           'quit - quit the application\n')
 
 
-def add_student_handler():
+def add_student_handler(student_service: StudentService):
     ask_prompt = "Enter student's payload data using text template (name is obligatory field, details is optional field)\n" \
                  "John Doe;1,2,3,4,5;Some details about John:\n"
     add_student_input = input(ask_prompt).strip()
@@ -219,7 +234,7 @@ def add_student_handler():
     if parsed_student_data:
         answer = input('Would you like to add new student? [y|yes / n|no]: ').strip().lower()
         if answer in ('y', 'yes'):
-            add_student(*parsed_student_data)
+            student_service.add_student(*parsed_student_data)
             print('New student added\n')
         else:
             print('Action was cancelled\n')
@@ -303,17 +318,20 @@ def main():
         print('Digital Journal App takes no parameters or 1 parameter for file path')
         sys.exit(1)
 
-    global storage
+    #global storage
     try:
-        storage = read_storage_file(storage_file_path)
+        #storage = read_storage_file(storage_file_path)
+        repository = Repository(storage_file_path)
+        student_service = StudentService(repository)
     except FileNotFoundError:
-        print("New storage file will be created\n")
+        print("New storage file will be created\n")  # TODO: should be created
 
     while True:
         command = input(f"Enter one of the commands: {COMMAND_LIST}: ").strip().lower()
         match command:
             case 'quit':
-                save_storage_file(storage_file_path)  # TODO: if storage wasn't changed no reason to re-save file
+                #save_storage_file(storage_file_path)  # TODO: if storage wasn't changed no reason to re-save file
+                print("Thank you for using Digital Journal App")
                 break
             case 'help':
                 help_handler()
