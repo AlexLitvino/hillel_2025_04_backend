@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import csv
 import json
 import operator
 import sys
@@ -18,11 +19,11 @@ COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
 class AbstractRepository(ABC):
 
     @abstractmethod
-    def read_storage(self):
+    def _read_storage(self):
         pass
 
     @abstractmethod
-    def write_storage(self):
+    def _write_storage(self):
         pass
 
     @abstractmethod
@@ -45,6 +46,62 @@ class AbstractRepository(ABC):
     def add_mark(self, id_: int, mark: int):
         pass
 
+
+class Repository(AbstractRepository):
+
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self.students = {}
+
+    def get_next_id(self):
+        """Returns id to assign for the next student"""
+        if len(self.students) == 0:
+            return 1
+        else:
+            return max([int(key) for key in self.students.keys()]) + 1
+
+    def _read_storage(self):
+        with open(self.file_path, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                self.students[int(row['id'])] = {'name': row['name'],
+                                                 'info': row['info'],
+                                                 'marks': [int(mark) for mark in row['marks'].split(',')]}
+
+    def _write_storage(self):
+        with open(self.file_path, 'w', newline='') as csvfile:
+            fieldnames = ['id', 'name', 'info', 'marks']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+            writer.writeheader()
+            for key, student in self.students.items():
+                writer.writerow({'id': key, 'name': student['name'], 'info': student['info'], 'marks': ','.join(student['marks'])})
+
+    def add_student(self, student: dict):
+        key = self.get_next_id()
+        self.students[key] = student
+        with open(self.file_path, 'a', newline='') as csvfile:
+            fieldnames = ['id', 'name', 'info', 'marks']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writerow({'id': key, 'name': student['name'], 'info': student['info'], 'marks': ','.join(student['marks'])})
+
+    def get_student(self, id_: int):
+        return self.students[id_]
+
+    def update_student(self, id_: int, data: dict):
+        if 'name' in data:
+            self.students[id_]['name'] = data['name']
+        if 'info' in data:
+            self.students[id_]['info'] = data['info']
+        self._write_storage()
+
+    def delete_student(self, id_: int):
+        del self.students[id_]
+        self._write_storage()
+
+    def add_mark(self, id_: int, mark: int):
+        self.students[id_]['marks'].append(mark)
+        self._write_storage()
 
 # ######################################################################################################################
 # Helpers
@@ -278,4 +335,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    #main()
+    repo = Repository('students.csv')
+    repo._read_storage()
+    print(repo.get_student(10))
+    repo.add_student({'name': 'Jim Bo', 'info': 'Tuk-Tuk', 'marks':[]})
+    print()
