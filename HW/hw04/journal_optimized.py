@@ -16,24 +16,32 @@ COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
 # ######################################################################################################################
 
 class AbstractRepository(ABC):
+
+    @abstractmethod
     def read_storage(self):
         pass
 
+    @abstractmethod
     def write_storage(self):
         pass
 
+    @abstractmethod
     def add_student(self, student: dict):
         pass
 
+    @abstractmethod
     def get_student(self, id_: int):
         pass
 
+    @abstractmethod
     def update_student(self, id_: int, data: dict):
         pass
 
+    @abstractmethod
     def delete_student(self, id_: int):
         pass
 
+    @abstractmethod
     def add_mark(self, id_: int, mark: int):
         pass
 
