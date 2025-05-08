@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
 import csv
-import json
+from pathlib import Path
 import sys
-
-#storage: dict[str, dict] = {}  # global variable to keep students list
 
 
 STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove', 'grade', 'update')
@@ -55,6 +53,7 @@ class Repository(AbstractRepository):
     def __init__(self, file_path):
         self.file_path = file_path
         self.students = {}
+        self._read_storage()
 
     def get_next_id(self):
         """Returns id to assign for the next student"""
@@ -78,7 +77,7 @@ class Repository(AbstractRepository):
 
             writer.writeheader()
             for key, student in self.students.items():
-                writer.writerow({'id': key, 'name': student['name'], 'info': student['info'], 'marks': ','.join(student['marks'])})
+                writer.writerow({'id': key, 'name': student['name'], 'info': student['info'], 'marks': ','.join(str(mark) for mark in student['marks'])})
 
     def add_student(self, student: dict):
         key = self.get_next_id()
@@ -86,19 +85,18 @@ class Repository(AbstractRepository):
         with open(self.file_path, 'a', newline='') as csvfile:
             fieldnames = ['id', 'name', 'info', 'marks']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writerow({'id': key, 'name': student['name'], 'info': student['info'], 'marks': ','.join(student['marks'])})
+            writer.writerow({'id': key, 'name': student['name'], 'info': student['info'], 'marks': ','.join([str(mark) for mark in student['marks']])})
 
     def get_all_students(self):
+        self._read_storage()
         return self.students
 
     def get_student(self, id_: int):
+        self._read_storage()
         return self.students[id_]
 
     def update_student(self, id_: int, data: dict):
-        if 'name' in data:
-            self.students[id_]['name'] = data['name']
-        if 'info' in data:
-            self.students[id_]['info'] = data['info']
+        self.students[id_].update(data)
         self._write_storage()
 
     def delete_student(self, id_: int):
@@ -115,26 +113,6 @@ class Repository(AbstractRepository):
 # ######################################################################################################################
 # Helpers
 # ######################################################################################################################
-
-# def read_storage_file(file_path: str):
-#     with open(file_path, 'r') as f:
-#         storage_content = json.load(f)
-#     return storage_content
-#
-#
-# def save_storage_file(file_path: str):
-#     with open(file_path, 'w') as f:
-#         json.dump(storage, f, indent=4)
-#
-#
-# def get_next_id():
-#     """Returns id to assign for the next student"""
-#     if len(storage) == 0:
-#         return "1"
-#     else:
-#         return str(max([int(key) for key in storage.keys()]) + 1)
-
-
 def get_string_of_marks(student: dict):
     """Returns string of student's marks separated by space"""
     return " ".join([str(i) for i in student["marks"]])
@@ -154,15 +132,6 @@ def parse_add_student_input(add_student_input: str):
     else:
         return None
 
-
-def search_student(raw_id: str):
-    student = storage.get(raw_id)
-    if student is None:
-        print(f"Student with id={raw_id} is missing in the students list\n")
-        return None
-    else:
-        return raw_id, student
-
 # ######################################################################################################################
 # CRUD
 # ######################################################################################################################
@@ -170,60 +139,64 @@ class StudentService:
 
     def __init__(self, repository: AbstractRepository):
         self.repository = repository
+
     def add_student(self, name: str, marks: list[int] | None, details: str | None):
         student = {"name": name,
                    "marks": marks if marks else [],
                    "info": details if details else ""}
-        #storage[get_next_id()] = student
         self.repository.add_student(student)
 
+    def get_students(self):
+        return self.repository.get_all_students()
 
-    def show_students(self):
-        if len(self.repository) > 0:
-            for key, student in self.repository.get_all_students():
-                print('===================\n'
-                      f'{key}. {student["name"]}\n'
-                      f'Marks: {get_string_of_marks(student)}\n')
-        else:
-            print("No students are added at the moment\n")
+    def get_student_info(self, id_: int):
+        return self.repository.get_student(id_)
 
+    def remove_student(self, id_: int):
+        self.repository.delete_student(id_)
 
-    def show_student(student: dict):
-        print('===================\n'
-              f'{student["name"]}\n'
-              f'Marks: {get_string_of_marks(student)}\n'
-              f'Information: {student["info"]}\n')
+    def add_mark(self, id_: int, mark: int):
+        self.repository.add_mark(id_, mark)
 
-
-    def remove_student(id_: str):
-        del storage[id_]
-
-
-    def add_mark(student: dict, mark: int):
-        student['marks'].append(mark)
-
-
-    def update_student(student: dict, name: str|None=None, info: str|None=None):
+    def update_student(self, id_: int, name: str|None=None, info: str|None=None):
+        data = {}
         if name is not None:
-            student['name'] = name
+            data['name'] = name
         if info is not None:
-            student['info'] = info
+            data['info'] = info
+        self.repository.update_student(id_, data)
+
+    def number_of_students(self):
+        return len(self.repository)
 
 # ######################################################################################################################
 # Command handlers
 # ######################################################################################################################
 def help_handler():
     print('Welcome to DIGITAL JOURNAL APP\n'
-          'It helps to manage students assessment\n'
-          'The following commands are available:\n\n'
-          'show all - lists all students (only names and marks will be displayed)\n'
-          'show - shows record for specific student (all information will be displayed)\n'
-          'add - adds new student to journal (it is required to enter name and optionally marks from paper journal and information about student could be entered)\n'
-          'remove - removes student from journal\n'
-          'grade - adds new mark for student\n'
-          'update - updates name or/and information about student\n'
-          'help - displays this help\n'
-          'quit - quit the application\n')
+          'It helps to manage students assessment\n\n'
+          'The following commands are available:\n'
+          '\tshow all - lists all students (only names and marks will be displayed)\n'
+          '\tshow - shows record for specific student (all information will be displayed)\n'
+          '\tadd - adds new student to journal (it is required to enter name and optionally marks from paper journal and information about student could be entered)\n'
+          '\tremove - removes student from journal\n'
+          '\tgrade - adds new mark for student\n'
+          '\tupdate - updates name or/and information about student\n'
+          '\thelp - displays this help\n'
+          '\tquit - quit the application\n')
+
+
+def search_student_handler(student_service: StudentService, raw_id: str):
+    try:
+        id_ = int(raw_id)
+        student = student_service.get_student_info(int(raw_id))
+    except ValueError:
+        print('Student id should be integer\n')
+        return
+    except KeyError:
+        print(f"Student with id={raw_id} is missing in the students list\n")
+        return
+    return id_, student
 
 
 def add_student_handler(student_service: StudentService):
@@ -234,7 +207,7 @@ def add_student_handler(student_service: StudentService):
     if parsed_student_data:
         answer = input('Would you like to add new student? [y|yes / n|no]: ').strip().lower()
         if answer in ('y', 'yes'):
-            student_service.add_student(*parsed_student_data)
+            student_service.add_student(parsed_student_data['name'], parsed_student_data['marks'], parsed_student_data['info'])
             print('New student added\n')
         else:
             print('Action was cancelled\n')
@@ -242,32 +215,47 @@ def add_student_handler(student_service: StudentService):
         print("Input string couldn't be parsed. Please check format\n")
 
 
-def remove_student_handler():
+def remove_student_handler(student_service: StudentService):
     raw_id = input("Enter student's id to remove: ").strip()
-    student_pair = search_student(raw_id)
+    student_pair = search_student_handler(student_service, raw_id)
     if student_pair:
         id_, _ = student_pair
         answer = input('Would you like to remove student? [y|yes / n|no]: ').strip().lower()
         if answer in ('y', 'yes'):
-            remove_student(id_)
+            student_service.remove_student(id_)
             print('Student was removed\n')
         else:
             print('Action was cancelled\n')
 
 
-def show_student_info_handler():
+def show_student_info_handler(student_service: StudentService):
     raw_id = input("Enter student's id to display info: ").strip()
-    student_pair = search_student(raw_id)
+    student_pair = search_student_handler(student_service, raw_id)
     if student_pair:
-        _, student = student_pair
-        show_student(student)
+        id_, student = student_pair
+        student_service.get_student_info(id_)
+        print('===================\n'
+              f'{student["name"]}\n'
+              f'Marks: {get_string_of_marks(student)}\n'
+              f'Information: {student["info"]}\n')
 
 
-def grade_student_handler():
+def show_students_handler(student_service: StudentService):
+    if student_service.number_of_students() > 0:
+        for key, student in student_service.get_students().items():
+            print('===================\n'
+                  f'{key}. {student["name"]}\n'
+                  f'Marks: {get_string_of_marks(student)}')
+    else:
+        print("No students are added at the moment")
+    print()
+
+
+def grade_student_handler(student_service: StudentService):
     raw_id = input("Enter student's id to add mark: ").strip()
-    student_pair = search_student(raw_id)
+    student_pair = search_student_handler(student_service, raw_id)
     if student_pair:
-        _, student = student_pair
+        id_, student = student_pair
         try:
             mark = int(input("Enter new mark for student [1-12]: "))
             if not 1 <= mark <= 12:
@@ -275,7 +263,7 @@ def grade_student_handler():
 
             answer = input('Would you like to add new mark for student? [y|yes / n|no]: ').strip().lower()
             if answer in ('y', 'yes'):
-                add_mark(student, mark)
+                student_service.add_mark(id_, mark)
                 print(f"Updated marks for {student['name']}: {get_string_of_marks(student)}\n")
             else:
                 print('Action was cancelled\n')
@@ -284,11 +272,11 @@ def grade_student_handler():
             print("Mark should be integer from 1 to 12\n")
 
 
-def update_student_handler():
+def update_student_handler(student_service: StudentService):
     raw_id = input("Enter student's id to update: ").strip()
-    student_pair = search_student(raw_id)
+    student_pair = search_student_handler(student_service, raw_id)
     if student_pair:
-        _, student = student_pair
+        id_, student = student_pair
         name = input(f"Enter new name to update '{student['name']}'. Enter 'no' to skip: ").strip()
         name = None if name.strip().lower() == 'no' else name
 
@@ -301,7 +289,7 @@ def update_student_handler():
 
         answer = input("Would you like to update student's name/info? [y|yes / n|no]: ").strip().lower()
         if answer in ('y', 'yes'):
-            update_student(student, name, info)
+            student_service.update_student(id_, name, info)
             print(f"Student record was updated\n")
         else:
             print('Action was cancelled\n')
@@ -311,50 +299,44 @@ def main():
     help_handler()
 
     if len(sys.argv) == 1:
-        storage_file_path = 'students_optimized.json'
+        storage_file_path = 'students.csv'
     elif len(sys.argv) == 2:
         storage_file_path = sys.argv[1]
     else:
         print('Digital Journal App takes no parameters or 1 parameter for file path')
         sys.exit(1)
 
-    #global storage
-    try:
-        #storage = read_storage_file(storage_file_path)
-        repository = Repository(storage_file_path)
-        student_service = StudentService(repository)
-    except FileNotFoundError:
-        print("New storage file will be created\n")  # TODO: should be created
+    if not Path(storage_file_path).exists():
+        Path(storage_file_path).touch()
+        print("New storage file is created\n")
+
+    repository = Repository(storage_file_path)
+    student_service = StudentService(repository)
+
 
     while True:
         command = input(f"Enter one of the commands: {COMMAND_LIST}: ").strip().lower()
         match command:
             case 'quit':
-                #save_storage_file(storage_file_path)  # TODO: if storage wasn't changed no reason to re-save file
                 print("Thank you for using Digital Journal App")
                 break
             case 'help':
                 help_handler()
             case 'add':
-                add_student_handler()
+                add_student_handler(student_service)
             case 'show':
-                show_student_info_handler()
+                show_student_info_handler(student_service)
             case 'show all':
-                show_students()
+                show_students_handler(student_service)
             case 'remove':
-                remove_student_handler()
+                remove_student_handler(student_service)
             case 'grade':
-                grade_student_handler()
+                grade_student_handler(student_service)
             case 'update':
-                update_student_handler()
+                update_student_handler(student_service)
             case _:
                 print("Unknown command\n")
 
 
 if __name__ == '__main__':
-    #main()
-    repo = Repository('students.csv')
-    repo._read_storage()
-    print(repo.get_student(10))
-    repo.add_student({'name': 'Jim Bo', 'info': 'Tuk-Tuk', 'marks':[]})
-    print()
+    main()
