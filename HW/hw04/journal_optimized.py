@@ -3,6 +3,8 @@ import csv
 from pathlib import Path
 import sys
 
+from colorama import Fore, init, Style
+
 
 STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove', 'grade', 'update')
 AUXILIARY_COMMANDS = ('help', 'quit')
@@ -68,7 +70,7 @@ class Repository(AbstractRepository):
             for row in reader:
                 self.students[int(row['id'])] = {'name': row['name'],
                                                  'info': row['info'],
-                                                 'marks': [int(mark) for mark in row['marks'].split(',')]}
+                                                 'marks': [int(mark) for mark in row['marks'].split(',') if mark]}
 
     def _write_storage(self):
         with open(self.file_path, 'w', newline='') as csvfile:
@@ -77,7 +79,10 @@ class Repository(AbstractRepository):
 
             writer.writeheader()
             for key, student in self.students.items():
-                writer.writerow({'id': key, 'name': student['name'], 'info': student['info'], 'marks': ','.join(str(mark) for mark in student['marks'])})
+                writer.writerow({'id': key,
+                                 'name': student['name'],
+                                 'info': student['info'],
+                                 'marks': ','.join(str(mark) for mark in student['marks'])})
 
     def add_student(self, student: dict):
         key = self.get_next_id()
@@ -85,7 +90,10 @@ class Repository(AbstractRepository):
         with open(self.file_path, 'a', newline='') as csvfile:
             fieldnames = ['id', 'name', 'info', 'marks']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writerow({'id': key, 'name': student['name'], 'info': student['info'], 'marks': ','.join([str(mark) for mark in student['marks']])})
+            writer.writerow({'id': key,
+                             'name': student['name'],
+                             'info': student['info'],
+                             'marks': ','.join([str(mark) for mark in student['marks']])})
 
     def get_all_students(self):
         self._read_storage()
@@ -131,6 +139,12 @@ def parse_add_student_input(add_student_input: str):
         return {'name': raw_name.strip(), 'marks': marks, 'info': raw_details.strip()}
     else:
         return None
+
+def print_error(text):
+    print(Fore.RED + text + Style.RESET_ALL)
+
+def print_success(text):
+    print(Fore.GREEN + text + Style.RESET_ALL)
 
 # ######################################################################################################################
 # CRUD
@@ -191,10 +205,10 @@ def search_student_handler(student_service: StudentService, raw_id: str):
         id_ = int(raw_id)
         student = student_service.get_student_info(int(raw_id))
     except ValueError:
-        print('Student id should be integer\n')
+        print_error('Student id should be integer\n')
         return
     except KeyError:
-        print(f"Student with id={raw_id} is missing in the students list\n")
+        print_error(f"Student with id={raw_id} is missing in the students list\n")
         return
     return id_, student
 
@@ -208,11 +222,11 @@ def add_student_handler(student_service: StudentService):
         answer = input('Would you like to add new student? [y|yes / n|no]: ').strip().lower()
         if answer in ('y', 'yes'):
             student_service.add_student(parsed_student_data['name'], parsed_student_data['marks'], parsed_student_data['info'])
-            print('New student added\n')
+            print_success('New student added\n')
         else:
-            print('Action was cancelled\n')
+            print_error('Action was cancelled\n')
     else:
-        print("Input string couldn't be parsed. Please check format\n")
+        print_error("Input string couldn't be parsed. Please check format\n")
 
 
 def remove_student_handler(student_service: StudentService):
@@ -223,9 +237,9 @@ def remove_student_handler(student_service: StudentService):
         answer = input('Would you like to remove student? [y|yes / n|no]: ').strip().lower()
         if answer in ('y', 'yes'):
             student_service.remove_student(id_)
-            print('Student was removed\n')
+            print_success('Student was removed\n')
         else:
-            print('Action was cancelled\n')
+            print_error('Action was cancelled\n')
 
 
 def show_student_info_handler(student_service: StudentService):
@@ -264,12 +278,12 @@ def grade_student_handler(student_service: StudentService):
             answer = input('Would you like to add new mark for student? [y|yes / n|no]: ').strip().lower()
             if answer in ('y', 'yes'):
                 student_service.add_mark(id_, mark)
-                print(f"Updated marks for {student['name']}: {get_string_of_marks(student)}\n")
+                print_success(f"Updated marks for {student['name']}: {get_string_of_marks(student)}\n")
             else:
-                print('Action was cancelled\n')
+                print_error('Action was cancelled\n')
 
         except ValueError:
-            print("Mark should be integer from 1 to 12\n")
+            print_error("Mark should be integer from 1 to 12\n")
 
 
 def update_student_handler(student_service: StudentService):
@@ -290,12 +304,13 @@ def update_student_handler(student_service: StudentService):
         answer = input("Would you like to update student's name/info? [y|yes / n|no]: ").strip().lower()
         if answer in ('y', 'yes'):
             student_service.update_student(id_, name, info)
-            print(f"Student record was updated\n")
+            print_success(f"Student record was updated\n")
         else:
-            print('Action was cancelled\n')
+            print_error('Action was cancelled\n')
 
 
 def main():
+    init()  # colorama initialization
     help_handler()
 
     if len(sys.argv) == 1:
@@ -335,7 +350,7 @@ def main():
             case 'update':
                 update_student_handler(student_service)
             case _:
-                print("Unknown command\n")
+                print_error("Unknown command\n")
 
 
 if __name__ == '__main__':
