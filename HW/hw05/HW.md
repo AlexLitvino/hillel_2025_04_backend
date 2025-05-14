@@ -55,3 +55,16 @@ while user_input := input("Enter anything: "):
   - ASK for credentials UNTIL they are NOT CORRECT
   - IF credentials are CORRECT - EXECUTE the command (actually just prints the command)
   - IF User has entered credentials CORRECTLY once - it is CACHED and used to call future commands WITHOUT additional AUTHORIZATION
+
+
+**Issues:**
+- `Price`: Missing converter entry for `CHF`; will cause a `KeyError` if `CHF` is used as a currency
+- `Price`: No handling for unknown currencies; adding unsupported currencies will fail
+- `auth`: Prompts for username every time, even when already authorized
+- `auth`: If a non-existent username is entered, the decorator exits without giving the user another chance
+- `auth`: Accepts empty password input as an exit from the password loop (may not be intended)
+Improvements
+- Add CHF to converter with rates {'bid': 1.0, 'ask': 1.0} to support all scenarios
+    - Or I would say you can think about dict of nested dicts to improve the data structure
+- Add type hints to all methods for clarity and static checking
+- Ensure empty passwords are not accepted (require non-empty input).
