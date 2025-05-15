@@ -68,3 +68,25 @@ Improvements
     - Or I would say you can think about dict of nested dicts to improve the data structure
 - Add type hints to all methods for clarity and static checking
 - Ensure empty passwords are not accepted (require non-empty input).
+
+
+Hi. Regarding this point:
+
+**Issues:**
+- `auth`: Prompts for username every time, even when already authorized
+if one user is authorised, then next time during function call, function is performed without requesting username, so another user can't perform this function?
+
+```
+@auth
+def command(payload: str):
+pass
+
+command(111)  # successful authorization
+command(222)  # simply perform function
+``` 
+ 
+Дмитро Парфенюк
+15.05.2025 11:01
+100 балiв
+Yes, you are on the right way actually. Currently, you can't work with multiple users in your system (wasn't in homework requirements), but that's correct that you created a list with authorized user.
+Another thing you can try to do is: (1) change the authorized to the boolean value, and (2) use nonlocal to change the value from the wrapper function
