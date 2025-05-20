@@ -56,3 +56,15 @@ def validate_config(config):
 ```
 
 Test with valid and invalid updates.
+
+
+Comments:
+Great job overall
+- TimeLimiter issues:
+  - Raises TimeoutError from a background thread, which cannot be caught in the main thread; as a result, the except TimeoutError does not work.
+  - Uses threading.excepthook, but this does not propagate exceptions to the main thread context.
+- Configuration context manager:
+  - Saves a copy of GLOBAL_CONFIG in __enter__, but does not return self or any value (recommended for with statements).
+  - Validator is called only on updates, not on the full configuration after merging updates, which could lead to invalid global states.
+  - On invalid config, exception is raised before global update—this is correct.
+

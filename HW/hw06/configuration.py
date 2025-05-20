@@ -6,11 +6,15 @@ class Configuration:
         self.validator = validator
 
     def __enter__(self):
+        global GLOBAL_CONFIG
         self.global_config = GLOBAL_CONFIG.copy()
+        temp_config = GLOBAL_CONFIG.copy()
+        temp_config.update(self.updates)
         if self.validator:
-            if not self.validator(self.updates):
+            if not self.validator(temp_config):
                 raise Exception('Config for update is not valid')
-        GLOBAL_CONFIG.update(self.updates)
+        GLOBAL_CONFIG = temp_config
+        return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         global GLOBAL_CONFIG
