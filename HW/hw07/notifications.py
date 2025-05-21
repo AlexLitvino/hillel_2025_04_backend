@@ -21,7 +21,7 @@ class User:
             print('=' * 80)
             print()
         else:
-            raise Exception(f"Unsuitable notification type {notification.__class__.__name__} for user role {self.role.name} ")
+            raise TypeError(f"Unsuitable notification type {notification.__class__.__name__} for user role {self.role.name} ")
 
 class Notification:
     def __init__(self, subject: str, message: str, attachment: str = "") -> None:
@@ -59,8 +59,14 @@ def main():
     # TODO: have users print (aka send) their notifications
     student_alice.send_notification(student_notification)
     teacher_bob.send_notification(teacher_notification)
-    teacher_bob.send_notification(student_notification)
-    student_alice.send_notification(teacher_notification)
+    try:
+        teacher_bob.send_notification(student_notification)
+    except TypeError as e:
+        print(e)
+    try:
+        student_alice.send_notification(teacher_notification)
+    except TypeError as e:
+        print(e)
 
 if __name__ == "__main__":
     main()
