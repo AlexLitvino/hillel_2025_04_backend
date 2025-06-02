@@ -12,6 +12,7 @@ you're building a simple backend moderation system for post comments
 - the system should support exporting flagged comments to a local JSON file called `flagged_comments.json`
 - handle HTTP errors gracefully and skip any malformed data entries
 """
+from client import Client
 
 BASE_URL = "https://jsonplaceholder.typicode.com"
 
@@ -24,12 +25,19 @@ class Comment:
         self.body = body
 
 class CommentModerator:
-    def __init__(self):
+    def __init__(self, client: Client):
+        self._client: Client = client
         self.comments: list[Comment] = []
         self.flagged_comments: list[Comment] = []
+        self.fetch_comments()
 
     def fetch_comments(self):
-        pass
+        self.comments = [Comment(comment['id'],
+                                 comment['postId'],
+                                 comment['name'],
+                                 comment['email'],
+                                 comment['body'])
+                         for comment in self._client.get_all_comments()]
 
     def flag_suspicious_comments(self):
         pass
@@ -42,3 +50,9 @@ class CommentModerator:
 
     def export_flagged_to_json(self, filename: str = "flagged_comments.json"):
         pass
+
+
+if __name__ == '__main__':
+    client = Client(BASE_URL)
+    comments = client.get_all_comments()
+    print(comments)

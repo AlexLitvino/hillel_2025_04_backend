@@ -11,24 +11,9 @@ you are tasked with building a mini analytics tool for a fake blog platform usin
 - implement a method that returns the user with the longest average post body length
 - implement a method that returns all users who have written more than 5 posts with titles longer than 40 characters
 """
-import requests
+from client import Client
 
 BASE_URL = "https://jsonplaceholder.typicode.com"
-
-class Client:
-
-    def __init__(self, base_url: str):
-        self.base_url: str = base_url
-
-    def get_all_users(self):  # TODO: implement paging
-        response = requests.get(f"{self.base_url}/users")
-        users = response.json()  # TODO: shorten call
-        return users
-
-    def get_posts_for_user(self, user_id: int):
-        response = requests.get(f"{self.base_url}/posts", params={'userId': user_id})
-        post = response.json()
-        return post
 
 
 class Post:
@@ -43,8 +28,6 @@ class User:
         self.name = name
         self.posts: list[Post] = []
 
-    def add_post(self, post: Post):
-        pass
 
     def average_title_length(self) -> float:
         if len(self.posts) == 0:
@@ -119,3 +102,15 @@ if __name__ == '__main__':
     users = ba.users_with_many_long_titles()
     print(users)
     ba.print_user_with_posts_length_debug()
+
+#     posts = len(client.get_posts_for_user(1))
+#     print(posts)
+#     resp = client.add_post(1, 'title', 'body')
+#     print(resp)  # '{
+# #   "userId": 1,
+# #   "title": "title",
+# #   "body": "body",
+# #   "id": 101
+# # }'
+#     posts = len(client.get_posts_for_user(1))
+#     print(posts)
