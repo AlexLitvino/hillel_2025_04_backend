@@ -6,3 +6,6 @@ jupyterlab
 notebook
 faker
 colorama
+aiohttp
+fastapi
+openai
