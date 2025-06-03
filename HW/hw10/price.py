@@ -5,7 +5,7 @@ from typing import Any
 import requests
 
 AV_API_KEY = os.getenv("AV_API_KEY")
-print(AV_API_KEY)
+
 
 class Currency(StrEnum):
     USD = 'USD'
@@ -14,14 +14,6 @@ class Currency(StrEnum):
     GBP = 'GBP'
 
 BASE_CURRENCY = 'CHF' 
-
-# TODO: remove converter
-# converter = {
-#     Currency.USD: {'bid': 0.8451, 'ask': 0.8461},
-#     Currency.UAH: {'bid': 49.3, 'ask': 50.9},
-#     Currency.CHF: {'bid': 1.0, 'ask': 1.0}
-# }
-
 
 class APIError(Exception):
     pass
@@ -58,11 +50,11 @@ class Price:
             self_currency_rate = get_currency_rate(self.currency, BASE_CURRENCY)
             self_currency_rate_ask = self_currency_rate['ask']
             self_currency_rate_bid = self_currency_rate['bid']
-            other_currency_rate_ask = get_currency_rate(other.currency, BASE_CURRENCY)['ask']
+            other_currency_rate_bid = get_currency_rate(other.currency, BASE_CURRENCY)['bid']
 
-            self_value_chf = self.value / self_currency_rate_ask
-            other_value_chf = other.value / other_currency_rate_ask
-            return Price((self_value_chf + other_value_chf) * self_currency_rate_bid, self.currency)
+            self_value_chf = self.value * self_currency_rate_bid
+            other_value_chf = other.value * other_currency_rate_bid
+            return Price((self_value_chf + other_value_chf) / self_currency_rate_ask, self.currency)
 
     def __sub__(self, other: Any):
         if not isinstance(other, Price):
@@ -74,11 +66,11 @@ class Price:
             self_currency_rate = get_currency_rate(self.currency, BASE_CURRENCY)
             self_currency_rate_ask = self_currency_rate['ask']
             self_currency_rate_bid = self_currency_rate['bid']
-            other_currency_rate_ask = get_currency_rate(other.currency, BASE_CURRENCY)['ask']
+            other_currency_rate_bid = get_currency_rate(other.currency, BASE_CURRENCY)['bid']
 
-            self_value_chf = self.value / self_currency_rate_ask
-            other_value_chf = other.value / other_currency_rate_ask
-            return Price((self_value_chf - other_value_chf) * self_currency_rate_bid, self.currency)
+            self_value_chf = self.value * self_currency_rate_bid
+            other_value_chf = other.value * other_currency_rate_bid
+            return Price((self_value_chf - other_value_chf) / self_currency_rate_ask, self.currency)
 
     def __repr__(self):
         return f'Price(value={self.value}, currency={self.currency})'
@@ -96,18 +88,3 @@ if __name__ == '__main__':
     chf_100 = Price(100, Currency.CHF)
     print(usd_100 + chf_100)
     print(chf_100 + usd_100)
-
-    gbp_100 = Price(100, Currency.GBP)
-    print(gbp_100 + gbp_100)
-    # print(gbp_100 + usd_100)  # exception is expected
-    # print(usd_100 + gbp_100)  # exception is expected
-
-# TODO: remove, when check results got from API
-"""
-Price(value=250, currency=USD)
-Price(value=50, currency=USD)
-Price(value=116.484954079146, currency=USD)
-Price(value=184.3918106606784, currency=USD)
-Price(value=218.1893393215932, currency=CHF)
-Price(value=200, currency=GBP)
-"""
