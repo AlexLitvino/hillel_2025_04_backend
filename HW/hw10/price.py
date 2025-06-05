@@ -77,14 +77,17 @@ class Price:
 
 
 if __name__ == '__main__':
-    usd_100 = Price(100, Currency.USD)
-    usd_150 = Price(150, Currency.USD)
-    print(usd_100 + usd_150)  # 250 USD
-    print(usd_150 - usd_100)  # 50 USD
+    try:
+        usd_100 = Price(100, Currency.USD)
+        usd_150 = Price(150, Currency.USD)
+        print(usd_100 + usd_150)  # 250 USD
+        print(usd_150 - usd_100)  # 50 USD
 
-    uah_1000 = Price(1000, Currency.UAH)
-    print(usd_100 + uah_1000)
+        uah_1000 = Price(1000, Currency.UAH)
+        print(usd_100 + uah_1000)
 
-    chf_100 = Price(100, Currency.CHF)
-    print(usd_100 + chf_100)
-    print(chf_100 + usd_100)
+        chf_100 = Price(100, Currency.CHF)
+        print(usd_100 + chf_100)
+        print(chf_100 + usd_100)
+    except APIError as e:
+        print(f'API error occurred: {e}')
