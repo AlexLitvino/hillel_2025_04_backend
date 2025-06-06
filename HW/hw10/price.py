@@ -1,5 +1,10 @@
 from enum import StrEnum
+import os
 from typing import Any
+
+import requests
+
+AV_API_KEY = os.getenv("AV_API_KEY")
 
 
 class Currency(StrEnum):
@@ -8,12 +13,25 @@ class Currency(StrEnum):
     CHF = 'CHF'
     GBP = 'GBP'
 
+BASE_CURRENCY = 'CHF' 
 
-converter = {
-    Currency.USD: {'bid': 0.8451, 'ask': 0.8461},
-    Currency.UAH: {'bid': 49.3, 'ask': 50.9},
-    Currency.CHF: {'bid': 1.0, 'ask': 1.0}
-}
+class APIError(Exception):
+    pass
+
+
+def get_currency_rate(from_: str, to: str):
+    if from_ == to:
+        return {'ask': 1.0, 'bid': 1.0}
+    else:
+        url = f'https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency={from_}&to_currency={to}&apikey={AV_API_KEY}'
+        r = requests.get(url).json()
+        print(r)
+        error = r.get('Error Message') or r.get('Information')
+        if error:
+            raise APIError(error)
+
+        data = r['Realtime Currency Exchange Rate']
+        return {'ask': float(data['9. Ask Price']), 'bid': float(data['8. Bid Price'])}
 
 
 class Price:
@@ -29,12 +47,14 @@ class Price:
         if self.currency == other.currency:
             return Price(self.value + other.value, self.currency)
         else:
-            try:
-                self_value_chf = self.value / converter[self.currency]['ask']
-                other_value_chf = other.value / converter[other.currency]['ask']
-                return Price((self_value_chf + other_value_chf) * converter[self.currency]['bid'], self.currency)
-            except KeyError as e:
-                raise RuntimeError(f"Currency {str(e).split(':')[1][2:-2]} is not supported by converter")
+            self_currency_rate = get_currency_rate(self.currency, BASE_CURRENCY)
+            self_currency_rate_ask = self_currency_rate['ask']
+            self_currency_rate_bid = self_currency_rate['bid']
+            other_currency_rate_bid = get_currency_rate(other.currency, BASE_CURRENCY)['bid']
+
+            self_value_chf = self.value * self_currency_rate_bid
+            other_value_chf = other.value * other_currency_rate_bid
+            return Price((self_value_chf + other_value_chf) / self_currency_rate_ask, self.currency)
 
     def __sub__(self, other: Any):
         if not isinstance(other, Price):
@@ -43,32 +63,31 @@ class Price:
         if self.currency == other.currency:
             return Price(self.value - other.value, self.currency)
         else:
-            try:
-                self_value_chf = self.value / converter[self.currency]['ask']
-                other_value_chf = other.value / converter[other.currency]['ask']
-                return Price((self_value_chf - other_value_chf) * converter[self.currency]['bid'], self.currency)
-            except KeyError as e:
-                raise RuntimeError(f"Currency {str(e).split(':')[1][2:-2]} is not supported by converter")
+            self_currency_rate = get_currency_rate(self.currency, BASE_CURRENCY)
+            self_currency_rate_ask = self_currency_rate['ask']
+            self_currency_rate_bid = self_currency_rate['bid']
+            other_currency_rate_bid = get_currency_rate(other.currency, BASE_CURRENCY)['bid']
 
+            self_value_chf = self.value * self_currency_rate_bid
+            other_value_chf = other.value * other_currency_rate_bid
+            return Price((self_value_chf - other_value_chf) / self_currency_rate_ask, self.currency)
 
     def __repr__(self):
         return f'Price(value={self.value}, currency={self.currency})'
 
 
 if __name__ == '__main__':
-    usd_100 = Price(100, Currency.USD)
-    usd_150 = Price(150, Currency.USD)
-    print(usd_100 + usd_150)  # 250 USD
-    print(usd_150 - usd_100)  # 50 USD
+    try:
+        usd_100 = Price(100, Currency.USD)
+        usd_150 = Price(150, Currency.USD)
+        print(usd_100 + usd_150)  # 250 USD
+        print(usd_150 - usd_100)  # 50 USD
 
-    uah_1000 = Price(1000, Currency.UAH)
-    print(usd_100 + uah_1000)
+        uah_1000 = Price(1000, Currency.UAH)
+        print(usd_100 + uah_1000)
 
-    chf_100 = Price(100, Currency.CHF)
-    print(usd_100 + chf_100)
-    print(chf_100 + usd_100)
-
-    gbp_100 = Price(100, Currency.GBP)
-    print(gbp_100 + gbp_100)
-    # print(gbp_100 + usd_100)  # exception is expected
-    # print(usd_100 + gbp_100)  # exception is expected
+        chf_100 = Price(100, Currency.CHF)
+        print(usd_100 + chf_100)
+        print(chf_100 + usd_100)
+    except APIError as e:
+        print(f'API error occurred: {e}')
