@@ -11,7 +11,7 @@ you are tasked with building a mini analytics tool for a fake blog platform usin
 - implement a method that returns the user with the longest average post body length
 - implement a method that returns all users who have written more than 5 posts with titles longer than 40 characters
 """
-from client import Client
+from api_client import Client
 
 BASE_URL = "https://jsonplaceholder.typicode.com"
 
@@ -33,14 +33,14 @@ class User:
         if len(self.posts) == 0:
             return 0
         else:
-            return sum([len(post.title) for post in self.posts])/len(self.posts)
+            return sum([len(post.title) for post in self.posts]) / len(self.posts)
 
 
     def average_body_length(self) -> float:
         if len(self.posts) == 0:
             return 0
         else:
-            return sum([len(post.body) for post in self.posts])/len(self.posts)
+            return sum([len(post.body) for post in self.posts]) / len(self.posts)
 
     def __repr__(self):
         return f"User({self.id}, {self.name})"
@@ -89,8 +89,8 @@ class BlogAnalytics:
 
 
 if __name__ == '__main__':
-    client = Client(BASE_URL)
-    ba = BlogAnalytics(client)
+    api_client = Client(BASE_URL)
+    ba = BlogAnalytics(api_client)
 
     print('User with the longest average body of post')
     user = ba.user_with_longest_average_body()

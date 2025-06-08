@@ -12,7 +12,7 @@ you're building a simple backend moderation system for post comments
 - the system should support exporting flagged comments to a local JSON file called `flagged_comments.json`
 - handle HTTP errors gracefully and skip any malformed data entries
 """
-from client import Client
+from api_client import Client
 
 BASE_URL = "https://jsonplaceholder.typicode.com"
 
