@@ -12,6 +12,8 @@ you're building a simple backend moderation system for post comments
 - the system should support exporting flagged comments to a local JSON file called `flagged_comments.json`
 - handle HTTP errors gracefully and skip any malformed data entries
 """
+from collections import defaultdict, Counter
+import json
 import re
 
 from api_client import Client
@@ -25,7 +27,6 @@ class Comment:
         self.name = name
         self.email = email
         self.body = body
-        self.is_suspicious = None
 
 
 class CommentModerator:
@@ -49,54 +50,66 @@ class CommentModerator:
 
     def flag_suspicious_comments(self):
         for comment in self.comments:
-            if self._is_suspicious(comment.body):
-                setattr(comment, 'is_suspicious', True)
-            else:
-                setattr(comment, 'is_suspicious', False)
+            if self._is_suspicious(comment):
+                self.flagged_comments.append(comment)
 
 
     def group_by_post(self) -> dict[int, list[Comment]]:
-        from collections import defaultdict
         suspicious_comments_grouped_by_post = defaultdict(list)
-        for comment in self.comments:
-            if comment.is_suspicious:
-                suspicious_comments_grouped_by_post[comment.post_id].append(comment)
+        for comment in self.flagged_comments:
+            suspicious_comments_grouped_by_post[comment.post_id].append(comment)
         return suspicious_comments_grouped_by_post
 
     def top_spammy_emails(self, n: int = 5) -> list[str]:
-        from collections import Counter
-        spammers = Counter([comment.email for comment in self.comments if comment.is_suspicious])
-        print(spammers)
-        print(spammers.total())
-        return spammers.most_common(n)
-
+        spammers = Counter([comment.email for comment in self.flagged_comments])
+        return sorted(spammers, key=lambda spammer: spammer[1])[:n]
 
 
     def export_flagged_to_json(self, filename: str = "flagged_comments.json"):
-        pass
+        flagged_comments_to_save = [{'id': comment.post_id,
+                                     'post_id': comment.post_id,
+                                     'name': comment.name,
+                                     'email': comment.email,
+                                     'body': comment.body}
+                                    for comment in self.flagged_comments]
+        with open(filename, 'w') as f:
+            json.dump(flagged_comments_to_save, f, indent=2)
+
+
+    def print_summary_report(self):
+        #  provide a summary report: number of flagged comments per post, and a global list of the top 5 most spammy emails (authors of flagged comments)
+        print('SUMMARY REPORT')
+        print()
+        print('Number of flagged comments per post:')
+        for post_id, flagged_comments in self.group_by_post().items():
+            print(f'Post#{post_id} has {len(flagged_comments)} flagged comments')
+        print()
+        print('Top 5 most spammy emails:')
+        for email in self.top_spammy_emails():
+            print(f'\t{email}')
 
 
     @staticmethod
     def _is_suspicious(comment):
         words_re = re.compile("|".join(CommentModerator.SUSPICIOUS_CONTENT))
-        return words_re.search(comment)
+        return words_re.search(comment.body)
 
 
     def print_comments_debug(self):
         for comment in self.comments:
-            print(f'{comment.is_suspicious}:{comment.post_id} {comment.body}')
+            print(f'{self._is_suspicious(comment)}:{comment.post_id} {comment.body}')
             print()
-
 
 
 if __name__ == '__main__':
     from pprint import pprint
     api_client = Client(BASE_URL)
     comment_moderator = CommentModerator(api_client)
-    comment_moderator.print_comments_debug()
 
-    pprint(comment_moderator.group_by_post())
+    #comment_moderator.print_comments_debug()
+    #pprint(comment_moderator.group_by_post())
+    #print(comment_moderator.top_spammy_emails())
 
-    print(comment_moderator.top_spammy_emails())
+    comment_moderator.export_flagged_to_json()
 
-
+    comment_moderator.print_summary_report()
