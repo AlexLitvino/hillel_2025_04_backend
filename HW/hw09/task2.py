@@ -77,7 +77,6 @@ class CommentModerator:
 
 
     def print_summary_report(self):
-        #  provide a summary report: number of flagged comments per post, and a global list of the top 5 most spammy emails (authors of flagged comments)
         print('SUMMARY REPORT')
         print()
         print('Number of flagged comments per post:')
