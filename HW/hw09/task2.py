@@ -16,6 +16,8 @@ from collections import defaultdict, Counter
 import json
 import re
 
+from requests.exceptions import RequestException
+
 from api_client import Client
 
 BASE_URL = "https://jsonplaceholder.typicode.com"
@@ -101,14 +103,17 @@ class CommentModerator:
 
 
 if __name__ == '__main__':
-    from pprint import pprint
-    api_client = Client(BASE_URL)
-    comment_moderator = CommentModerator(api_client)
+    try:
+        from pprint import pprint
+        api_client = Client(BASE_URL)
+        comment_moderator = CommentModerator(api_client)
 
-    #comment_moderator.print_comments_debug()
-    #pprint(comment_moderator.group_by_post())
-    #print(comment_moderator.top_spammy_emails())
+        #comment_moderator.print_comments_debug()
+        #pprint(comment_moderator.group_by_post())
+        #print(comment_moderator.top_spammy_emails())
 
-    comment_moderator.export_flagged_to_json()
+        comment_moderator.export_flagged_to_json()
 
-    comment_moderator.print_summary_report()
+        comment_moderator.print_summary_report()
+    except RequestException:
+        print("Please check communication with server")

@@ -11,6 +11,8 @@ you are tasked with building a mini analytics tool for a fake blog platform usin
 - implement a method that returns the user with the longest average post body length
 - implement a method that returns all users who have written more than 5 posts with titles longer than 40 characters
 """
+from requests.exceptions import RequestException
+
 from api_client import Client
 
 BASE_URL = "https://jsonplaceholder.typicode.com"
@@ -89,28 +91,19 @@ class BlogAnalytics:
 
 
 if __name__ == '__main__':
-    api_client = Client(BASE_URL)
-    ba = BlogAnalytics(api_client)
+    try:
+        api_client = Client(BASE_URL)
+        ba = BlogAnalytics(api_client)
 
-    print('User with the longest average body of post')
-    user = ba.user_with_longest_average_body()
-    print(user)
-    ba.print_user_with_ave_body_debug()
-    print()
+        print('User with the longest average body of post')
+        user = ba.user_with_longest_average_body()
+        print(user)
+        ba.print_user_with_ave_body_debug()
+        print()
 
-    print('Users who have written more than 5 posts with titles longer than 40 characters')
-    users = ba.users_with_many_long_titles()
-    print(users)
-    ba.print_user_with_posts_length_debug()
-
-#     posts = len(client.get_posts_for_user(1))
-#     print(posts)
-#     resp = client.add_post(1, 'title', 'body')
-#     print(resp)  # '{
-# #   "userId": 1,
-# #   "title": "title",
-# #   "body": "body",
-# #   "id": 101
-# # }'
-#     posts = len(client.get_posts_for_user(1))
-#     print(posts)
+        print('Users who have written more than 5 posts with titles longer than 40 characters')
+        users = ba.users_with_many_long_titles()
+        print(users)
+        ba.print_user_with_posts_length_debug()
+    except RequestException:
+        print("Please check communication with server")
