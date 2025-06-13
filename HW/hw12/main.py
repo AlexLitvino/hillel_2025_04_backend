@@ -119,6 +119,50 @@ class Uber(DeliveryService):
         self._ship(delay)
 
 
+class ArchiveService:
+    # def __init__(self, order: DeliveryOrder):
+    #     self._order: DeliveryOrder = order
+
+    # @abc.abstractmethod
+    # def ship(self) -> None:
+    #     """resolve the order with concrete provider"""
+
+    @classmethod
+    def _archive_order(cls) -> None:
+        """background process"""
+
+        print("ORDERS ARCHIVING...")
+
+        while True:
+            # if not (delivery_orders := storage["delivery"]):
+            #     time.sleep(1)
+            #     continue
+            # else:
+
+            filtered = {k: v for k, v in storage["delivery"].items() if v[1] == "finished"}
+
+            # for order_id, value in filtered.items():
+            # orders_to_remove: set[uuid.UUID] = set()
+
+            for order_id, value in filtered.items():
+                if value[1] == "finished":
+                    print(f"\n\t🚚 Order {order_id} is delivered by {value[0]}")
+
+            time.sleep(CHECK_ORDER_DELAY)
+
+    def _ship(self, delay: float):
+
+        def _callback():
+            time.sleep(delay)
+            storage["delivery"][self._order.number] = (
+                self.__class__.__name__, "archived"
+            )
+            print(f"🚚 ARCHIVED {self._order}")
+
+        thread = threading.Thread(target=_callback)
+        thread.start()
+
+
 class Scheduler:
     def __init__(self):
         self.orders: queue.Queue[OrderRequestBody] = queue.Queue()
@@ -168,9 +212,12 @@ def main():
     process_delivery_thread = threading.Thread(
         target=DeliveryService._process_delivery, daemon=True
     )
-
+    archive_orders_thread = threading.Thread(
+        target=ArchiveService._archive_order, daemon=True
+    )
     process_orders_thread.start()
     process_delivery_thread.start()
+    archive_orders_thread.start()
 
     # user input:
     # A 5 (in 5 days)
