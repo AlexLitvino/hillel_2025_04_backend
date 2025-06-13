@@ -30,6 +30,13 @@ class Comment:
         self.email = email
         self.body = body
 
+    def to_dict(self):
+        return {'id': self.id,
+                'post_id': self.post_id,
+                'name': self.name,
+                'email': self.email,
+                'body': self.body}
+
 
 class CommentModerator:
 
@@ -65,15 +72,11 @@ class CommentModerator:
     def top_spammy_emails(self, n: int = 5) -> list[str]:
         spammers = Counter([comment.email for comment in self.flagged_comments])
         return sorted(spammers, key=lambda spammer: spammer[1])[:n]
+        # return spammers.most_common(n) # most_common works with list[str]
 
 
     def export_flagged_to_json(self, filename: str = "flagged_comments.json"):
-        flagged_comments_to_save = [{'id': comment.post_id,
-                                     'post_id': comment.post_id,
-                                     'name': comment.name,
-                                     'email': comment.email,
-                                     'body': comment.body}
-                                    for comment in self.flagged_comments]
+        flagged_comments_to_save = [comment.to_dict() for comment in self.flagged_comments]
         with open(filename, 'w') as f:
             json.dump(flagged_comments_to_save, f, indent=2)
 
