@@ -100,3 +100,13 @@ class CommentModerator:
         pass
 
 ```
+
+RECOMMENDATIONS
+- fix the key bug in `export_flagged_to_json` (use `comment.id`)
+- use `Counter.most_common(n)` in `top_spammy_emails` for accuracy
+- (optional) add a `to_dict()` method in `Comment` to simplify exporting
+- add docstrings or comments for maintainability
+- when constructing regex, consider word boundaries for certain keywords if you want stricter matching
+REFERENCES:
+- [collections.Counter.most_common](https://docs.python.org/3/library/collections.html#collections.Counter.most_common)
+- [Python re module](https://docs.python.org/3/library/re.html)
