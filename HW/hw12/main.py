@@ -1,3 +1,4 @@
+import enum
 import uuid
 from dataclasses import dataclass
 import random
@@ -9,10 +10,17 @@ from datetime import datetime, timedelta
 from typing import Literal
 
 CHECK_ORDER_DELAY = 2
+ARCHIVE_ORDER_DELAY = 10
+
+class OrderStatus(enum.StrEnum):
+    ONGOING = enum.auto()
+    FINISHED = enum.auto()
+    ARCHIVING = enum.auto()
+    ARCHIVED = enum.auto()
+
 
 OrderRequestBody = tuple[str, datetime]
 DeliveryProvider = Literal["Uklon", "Uber"]
-OrderDeliveryStatus = Literal["ongoing", "finished"]
 
 storage = {
     "delivery": {},  # id: [provider, status]
@@ -67,13 +75,13 @@ class DeliveryService(abc.ABC):
             #     continue
             # else:
 
-            filtered = {k: v for k, v in storage["delivery"].items() if v[1] == "ongoing"}
+            filtered = {k: v for k, v in storage["delivery"].items() if v[1] == OrderStatus.ONGOING}
 
             # for order_id, value in filtered.items():
             # orders_to_remove: set[uuid.UUID] = set()
 
             for order_id, value in filtered.items():
-                if value[1] == "finished":
+                if value[1] == OrderStatus.FINISHED:
                     print(f"\n\t🚚 Order {order_id} is delivered by {value[0]}")
                     # orders_to_remove.add(order_id)
 
@@ -88,7 +96,7 @@ class DeliveryService(abc.ABC):
         def _callback():
             time.sleep(delay)
             storage["delivery"][self._order.number] = (
-                self.__class__.__name__, "finished"
+                self.__class__.__name__, OrderStatus.FINISHED
             )
             print(f"🚚 DELIVERED {self._order}")
 
@@ -101,7 +109,7 @@ class Uklon(DeliveryService):
         provider_name = self.__class__.__name__
 
         self._order.number = uuid.uuid4()
-        storage["delivery"][self._order.number] = [provider_name, "ongoing"]
+        storage["delivery"][self._order.number] = [provider_name, OrderStatus.ONGOING]
         delay: float = random.randint(1, 3)
 
         print(f"\n\t🚚 {provider_name} Shipping {self._order} with {delay} delay")
@@ -113,51 +121,39 @@ class Uber(DeliveryService):
         provider_name = self.__class__.__name__
 
         self._order.number = uuid.uuid4()
-        storage["delivery"][self._order.number] = [provider_name, "ongoing"]
+        storage["delivery"][self._order.number] = [provider_name, OrderStatus.ONGOING]
         delay: float = random.randint(3, 5)
         print(f"\n\t🚚 {provider_name} Shipping {self._order} with {delay} delay")
         self._ship(delay)
 
 
 class ArchiveService:
-    # def __init__(self, order: DeliveryOrder):
-    #     self._order: DeliveryOrder = order
-
-    # @abc.abstractmethod
-    # def ship(self) -> None:
-    #     """resolve the order with concrete provider"""
 
     @classmethod
-    def _archive_order(cls) -> None:
+    def _archive_orders(cls) -> None:
         """background process"""
 
         print("ORDERS ARCHIVING...")
 
         while True:
-            # if not (delivery_orders := storage["delivery"]):
-            #     time.sleep(1)
-            #     continue
-            # else:
 
-            filtered = {k: v for k, v in storage["delivery"].items() if v[1] == "finished"}
-
-            # for order_id, value in filtered.items():
-            # orders_to_remove: set[uuid.UUID] = set()
+            filtered = {k: v for k, v in storage["delivery"].items() if v[1] == OrderStatus.FINISHED}
 
             for order_id, value in filtered.items():
-                if value[1] == "finished":
-                    print(f"\n\t🚚 Order {order_id} is delivered by {value[0]}")
+                ArchiveService._archive(order_id)
 
             time.sleep(CHECK_ORDER_DELAY)
 
-    def _ship(self, delay: float):
+    @staticmethod
+    def _archive(order_id):
 
         def _callback():
-            time.sleep(delay)
-            storage["delivery"][self._order.number] = (
-                self.__class__.__name__, "archived"
-            )
-            print(f"🚚 ARCHIVED {self._order}")
+            print(f"\t🗄️ Archiving order {order_id}...")
+            storage["delivery"][order_id] = (storage["delivery"][order_id][0], OrderStatus.ARCHIVING)
+            time.sleep(ARCHIVE_ORDER_DELAY - CHECK_ORDER_DELAY)
+            # TODO: here could be added archiving logic
+            storage["delivery"][order_id] = (storage["delivery"][order_id][0], OrderStatus.ARCHIVED)
+            print(f"🗄️ ARCHIVED order {order_id}")
 
         thread = threading.Thread(target=_callback)
         thread.start()
@@ -213,7 +209,7 @@ def main():
         target=DeliveryService._process_delivery, daemon=True
     )
     archive_orders_thread = threading.Thread(
-        target=ArchiveService._archive_order, daemon=True
+        target=ArchiveService._archive_orders, daemon=True
     )
     process_orders_thread.start()
     process_delivery_thread.start()
