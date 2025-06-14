@@ -1,11 +1,18 @@
+import json
+import os.path
+import time
 from abc import ABC, abstractmethod
 import csv
+from threading import Thread
 from pathlib import Path
 import sys
 
 from colorama import Fore, init, Style
 
-
+REPORT_PERIOD_CHECK = 5  # time in seconds to check if periodic report should be sent
+EVERY_MONTH_PERIOD = 20 # 30 * 24 * 3600
+EVERY_DAY_PERIOD = 10 # 24 * 3600
+STATE_FILE = 'state.json'  # file to save timestamps for sending reports
 STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove', 'grade', 'update')
 AUXILIARY_COMMANDS = ('help', 'quit')
 COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
@@ -308,6 +315,34 @@ def update_student_handler(student_service: StudentService):
         else:
             print_error('Action was cancelled\n')
 
+def send_every_month_statistics(student_service: StudentService):
+    while True:
+        with open(STATE_FILE, 'r') as f:
+            last_every_month = json.load(f)['last_every_month']
+        if time.time() - last_every_month > EVERY_MONTH_PERIOD:
+            print("Send every month report")
+            # TODO: send report
+            with open(STATE_FILE, 'r') as f:
+                last_every_day = json.load(f)['last_every_day']
+            with open(STATE_FILE, 'w') as f:
+                json.dump({'last_every_month': time.time(), 'last_every_day': last_every_day}, f)
+        else:
+            time.sleep(REPORT_PERIOD_CHECK)
+
+def send_every_day_statistics(student_service: StudentService):
+    while True:
+        with open(STATE_FILE, 'r') as f:
+            last_every_day = json.load(f)['last_every_day']
+        if time.time() - last_every_day > EVERY_DAY_PERIOD:
+            print("Send every day report")
+            # TODO: send report
+            with open(STATE_FILE, 'r') as f:
+                last_every_month = json.load(f)['last_every_month']
+            with open(STATE_FILE, 'w') as f:
+                json.dump({'last_every_month': last_every_month, 'last_every_day': time.time()}, f)
+        else:
+            time.sleep(REPORT_PERIOD_CHECK)
+
 
 def main():
     init()  # colorama initialization
@@ -328,6 +363,14 @@ def main():
     repository = Repository(storage_file_path)
     student_service = StudentService(repository)
 
+    # Create state file with current time uif it doesn't exist
+    if not os.path.exists(STATE_FILE):
+        with open(STATE_FILE, 'w') as f:
+            current_time = time.time()
+            json.dump({'last_every_month': current_time, 'last_every_day': current_time}, f)
+
+    Thread(target=send_every_month_statistics, args=(student_service,), daemon=True).start()
+    Thread(target=send_every_day_statistics, args=(student_service,), daemon=True).start()
 
     while True:
         command = input(f"Enter one of the commands: {COMMAND_LIST}: ").strip().lower()
