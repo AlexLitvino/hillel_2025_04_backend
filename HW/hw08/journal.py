@@ -132,10 +132,13 @@ class Repository(AbstractRepository):
 # ######################################################################################################################
 # Helpers
 # ######################################################################################################################
-def get_string_of_marks(student: dict):
-    """Returns string of student's marks separated by space"""
+def get_string_of_marks_to_display_one_student(student: dict):
+    """Returns string of student's marks with dates on new lines"""
     return " ".join([f'\n{date_mark[0].strftime("%Y-%m-%d")}: {date_mark[1]}' for date_mark in student["marks"]])
 
+def get_string_of_marks_to_display_many_students(student: dict):
+    """Returns string of student's marks separated by space"""
+    return " ".join([str(date_mark[1]) for date_mark in student["marks"]])
 
 def parse_add_student_input(add_student_input: str):
     if add_student_input.count(';') == 2:
@@ -261,7 +264,7 @@ def show_student_info_handler(student_service: StudentService):
         student_service.get_student_info(id_)
         print('===================\n'
               f'{student["name"]}\n'
-              f'Marks: {get_string_of_marks(student)}\n'
+              f'Marks: {get_string_of_marks_to_display_one_student(student)}\n'
               f'Information: {student["info"]}\n')
 
 
@@ -270,7 +273,7 @@ def show_students_handler(student_service: StudentService):
         for key, student in student_service.get_students().items():
             print('===================\n'
                   f'{key}. {student["name"]}\n'
-                  f'Marks: {get_string_of_marks(student)}')
+                  f'Marks: {get_string_of_marks_to_display_many_students(student)}')
     else:
         print("No students are added at the moment")
     print()
@@ -289,7 +292,7 @@ def grade_student_handler(student_service: StudentService):
             answer = input('Would you like to add new mark for student? [y|yes / n|no]: ').strip().lower()
             if answer in ('y', 'yes'):
                 student_service.add_mark(id_, mark, datetime.date.today())
-                print_success(f"Updated marks for {student['name']}: {get_string_of_marks(student)}\n")
+                print_success(f"Updated marks for {student['name']}: {get_string_of_marks_to_display_one_student(student)}\n")
             else:
                 print_error('Action was cancelled\n')
 
