@@ -6,6 +6,7 @@ import csv
 from threading import Thread
 from pathlib import Path
 import sys
+import datetime
 
 from colorama import Fore, init, Style
 
@@ -14,7 +15,7 @@ EVERY_MONTH_PERIOD = 20 # 30 * 24 * 3600
 EVERY_DAY_PERIOD = 10 # 24 * 3600
 STATE_FILE = 'state.json'  # file to save timestamps for sending reports
 STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove', 'grade', 'update')
-AUXILIARY_COMMANDS = ('help', 'quit')
+AUXILIARY_COMMANDS = ('help', 'quit', 'email')
 COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
 
 
@@ -315,31 +316,56 @@ def update_student_handler(student_service: StudentService):
         else:
             print_error('Action was cancelled\n')
 
+
+def update_state(**kwargs):
+    """Updates state file with new values"""
+    if not os.path.exists(STATE_FILE):
+        read_json = {}
+    else:
+        with open(STATE_FILE, 'r') as f:
+            read_json = json.load(f)
+    read_json.update(kwargs)
+    with open(STATE_FILE, 'w') as f:
+        json.dump(read_json, f)
+
+def get_state(field):
+    """Returns field value from state file"""
+    with open(STATE_FILE, 'r') as f:
+        return json.load(f)[field]
+
+def update_email_handler():
+    raw_id = input("Enter email to send reports to. Press enter to skip reporting: ").strip()
+    email = None if not raw_id else raw_id
+    answer = input(f"Would you like to update email to {raw_id}? [y|yes / n|no]: ").strip().lower()
+    if answer in ('y', 'yes'):
+        update_state(email=email)
+        print_success(f"Email was updated\n")
+    else:
+        print_error('Action was cancelled\n')
+
+    # processing case when user cancels saving email for the 1st time
+    try:
+        get_state('email')
+    except FileNotFoundError:
+        update_state(email=None)
+
 def send_every_month_statistics(student_service: StudentService):
     while True:
-        with open(STATE_FILE, 'r') as f:
-            last_every_month = json.load(f)['last_every_month']
+        last_every_month = get_state('last_every_month')
         if time.time() - last_every_month > EVERY_MONTH_PERIOD:
-            print("Send every month report")
+            print(f"{datetime.datetime.now()} Send every month report")
             # TODO: send report
-            with open(STATE_FILE, 'r') as f:
-                last_every_day = json.load(f)['last_every_day']
-            with open(STATE_FILE, 'w') as f:
-                json.dump({'last_every_month': time.time(), 'last_every_day': last_every_day}, f)
+            update_state(last_every_month=time.time())
         else:
             time.sleep(REPORT_PERIOD_CHECK)
 
 def send_every_day_statistics(student_service: StudentService):
     while True:
-        with open(STATE_FILE, 'r') as f:
-            last_every_day = json.load(f)['last_every_day']
+        last_every_day = get_state('last_every_day')
         if time.time() - last_every_day > EVERY_DAY_PERIOD:
-            print("Send every day report")
+            print(f"{datetime.datetime.now()} Send every day report")
             # TODO: send report
-            with open(STATE_FILE, 'r') as f:
-                last_every_month = json.load(f)['last_every_month']
-            with open(STATE_FILE, 'w') as f:
-                json.dump({'last_every_month': last_every_month, 'last_every_day': time.time()}, f)
+            update_state(last_every_day=time.time())
         else:
             time.sleep(REPORT_PERIOD_CHECK)
 
@@ -363,11 +389,13 @@ def main():
     repository = Repository(storage_file_path)
     student_service = StudentService(repository)
 
-    # Create state file with current time uif it doesn't exist
+    # Create state file with current time if it doesn't exist
     if not os.path.exists(STATE_FILE):
-        with open(STATE_FILE, 'w') as f:
-            current_time = time.time()
-            json.dump({'last_every_month': current_time, 'last_every_day': current_time}, f)
+        update_email_handler()
+        current_time = time.time()
+        update_state(last_every_month=current_time, last_every_day=current_time)
+    else:
+        email = get_state('email')
 
     Thread(target=send_every_month_statistics, args=(student_service,), daemon=True).start()
     Thread(target=send_every_day_statistics, args=(student_service,), daemon=True).start()
@@ -392,6 +420,8 @@ def main():
                 grade_student_handler(student_service)
             case 'update':
                 update_student_handler(student_service)
+            case 'email':
+                update_email_handler()
             case _:
                 print_error("Unknown command\n")
 
