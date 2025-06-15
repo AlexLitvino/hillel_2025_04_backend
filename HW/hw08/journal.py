@@ -18,6 +18,7 @@ STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove', 'grade', 'up
 AUXILIARY_COMMANDS = ('help', 'quit', 'email')
 COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
 
+EMAIL = None
 
 # ######################################################################################################################
 # Infrastructure
@@ -54,7 +55,7 @@ class AbstractRepository(ABC):
         pass
 
     @abstractmethod
-    def add_mark(self, id_: int, mark: int):
+    def add_mark(self, id_: int, mark: int, date: datetime.date):
         pass
 
 
@@ -78,7 +79,9 @@ class Repository(AbstractRepository):
             for row in reader:
                 self.students[int(row['id'])] = {'name': row['name'],
                                                  'info': row['info'],
-                                                 'marks': [int(mark) for mark in row['marks'].split(',') if mark]}
+                                                 'marks': [(datetime.date.fromisoformat(date_mark.split("|")[0]),
+                                                            int(date_mark.split("|")[1]))
+                                                           for date_mark in row['marks'].split(',') if date_mark]}
 
     def _write_storage(self):
         with open(self.file_path, 'w', newline='') as csvfile:
@@ -90,7 +93,7 @@ class Repository(AbstractRepository):
                 writer.writerow({'id': key,
                                  'name': student['name'],
                                  'info': student['info'],
-                                 'marks': ','.join(str(mark) for mark in student['marks'])})
+                                 'marks': ','.join(f"{date_mark[0].strftime('%Y-%m-%d')}|{date_mark[1]}" for date_mark in student['marks'])})
 
     def add_student(self, student: dict):
         key = self.get_next_id()
@@ -119,8 +122,8 @@ class Repository(AbstractRepository):
         del self.students[id_]
         self._write_storage()
 
-    def add_mark(self, id_: int, mark: int):
-        self.students[id_]['marks'].append(mark)
+    def add_mark(self, id_: int, mark: int, date: datetime.date):
+        self.students[id_]['marks'].append((date, mark))
         self._write_storage()
 
     def __len__(self):
@@ -131,7 +134,7 @@ class Repository(AbstractRepository):
 # ######################################################################################################################
 def get_string_of_marks(student: dict):
     """Returns string of student's marks separated by space"""
-    return " ".join([str(i) for i in student["marks"]])
+    return " ".join([f'\n{date_mark[0].strftime("%Y-%m-%d")}: {date_mark[1]}' for date_mark in student["marks"]])
 
 
 def parse_add_student_input(add_student_input: str):
@@ -177,8 +180,8 @@ class StudentService:
     def remove_student(self, id_: int):
         self.repository.delete_student(id_)
 
-    def add_mark(self, id_: int, mark: int):
-        self.repository.add_mark(id_, mark)
+    def add_mark(self, id_: int, mark: int, date: datetime.date):
+        self.repository.add_mark(id_, mark, date)
 
     def update_student(self, id_: int, name: str|None=None, info: str|None=None):
         data = {}
@@ -285,7 +288,7 @@ def grade_student_handler(student_service: StudentService):
 
             answer = input('Would you like to add new mark for student? [y|yes / n|no]: ').strip().lower()
             if answer in ('y', 'yes'):
-                student_service.add_mark(id_, mark)
+                student_service.add_mark(id_, mark, datetime.date.today())
                 print_success(f"Updated marks for {student['name']}: {get_string_of_marks(student)}\n")
             else:
                 print_error('Action was cancelled\n')
@@ -334,11 +337,12 @@ def get_state(field):
         return json.load(f)[field]
 
 def update_email_handler():
+    global EMAIL
     raw_id = input("Enter email to send reports to. Press enter to skip reporting: ").strip()
-    email = None if not raw_id else raw_id
+    EMAIL = None if not raw_id else raw_id
     answer = input(f"Would you like to update email to {raw_id}? [y|yes / n|no]: ").strip().lower()
     if answer in ('y', 'yes'):
-        update_state(email=email)
+        update_state(email=EMAIL)
         print_success(f"Email was updated\n")
     else:
         print_error('Action was cancelled\n')
@@ -353,9 +357,10 @@ def send_every_month_statistics(student_service: StudentService):
     while True:
         last_every_month = get_state('last_every_month')
         if time.time() - last_every_month > EVERY_MONTH_PERIOD:
-            print(f"{datetime.datetime.now()} Send every month report")
-            # TODO: send report
-            update_state(last_every_month=time.time())
+            if EMAIL:
+                print(f"{datetime.datetime.now()} Send every month report")
+                # TODO: send report
+                update_state(last_every_month=time.time())
         else:
             time.sleep(REPORT_PERIOD_CHECK)
 
@@ -363,9 +368,10 @@ def send_every_day_statistics(student_service: StudentService):
     while True:
         last_every_day = get_state('last_every_day')
         if time.time() - last_every_day > EVERY_DAY_PERIOD:
-            print(f"{datetime.datetime.now()} Send every day report")
-            # TODO: send report
-            update_state(last_every_day=time.time())
+            if EMAIL:
+                print(f"{datetime.datetime.now()} Send every day report")
+                # TODO: send report
+                update_state(last_every_day=time.time())
         else:
             time.sleep(REPORT_PERIOD_CHECK)
 
