@@ -23,6 +23,7 @@ class Message:
     def subject(self) -> str:
         return self.msg["Subject"]
 
+
 class SMTPService:
     def __init__(self, host: str = "localhost", port: int = 1025) -> None:
         self.host = host
@@ -31,13 +32,11 @@ class SMTPService:
     def __enter__(self):
         """Open the connection."""
         self.server = smtplib.SMTP(host=self.host, port=self.port)
-        print("Open SMTP Server Connection")
         return self
 
     def __exit__(self, *args, **kwargs):
         """Close the connection."""
         self.server.quit()
-        print("Close SMTP Server Connection")
 
     def send(self, from_: str, to: str, message: Message) -> None:
         self.server.sendmail(msg=str(message), from_addr=from_, to_addrs=to)
