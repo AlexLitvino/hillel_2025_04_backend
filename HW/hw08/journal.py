@@ -6,7 +6,7 @@ import sys
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from threading import Thread
+from threading import Thread, Lock
 
 from colorama import Fore, init, Style
 
@@ -328,19 +328,21 @@ def update_student_handler(student_service: StudentService):
 
 def update_state(**kwargs):
     """Updates state file with new values"""
-    if not os.path.exists(STATE_FILE):
-        read_json = {}
-    else:
-        with open(STATE_FILE, 'r') as f:
-            read_json = json.load(f)
-    read_json.update(kwargs)
-    with open(STATE_FILE, 'w') as f:
-        json.dump(read_json, f)
+    with Lock():
+        if not os.path.exists(STATE_FILE):
+            read_json = {}
+        else:
+            with open(STATE_FILE, 'r') as f:
+                read_json = json.load(f)  # TODO: json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0) when updating email
+        read_json.update(kwargs)
+        with open(STATE_FILE, 'w') as f:
+            json.dump(read_json, f)
 
 def get_state(field):
     """Returns field value from state file"""
-    with open(STATE_FILE, 'r') as f:
-        return json.load(f)[field]
+    with Lock():
+        with open(STATE_FILE, 'r') as f:
+            return json.load(f)[field]
 
 def update_email_handler():
     global RECIPIENT_EMAIL
