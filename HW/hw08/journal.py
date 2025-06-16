@@ -98,6 +98,7 @@ class Repository(AbstractRepository):
                                  'info': student['info'],
                                  'marks': ','.join(f"{date_mark[0].strftime('%Y-%m-%d')}|{date_mark[1]}" for date_mark in student['marks'])})
 
+    # TODO: it shouldn't work if add student with marks
     def add_student(self, student: dict):
         key = self.get_next_id()
         self.students[key] = student
@@ -387,6 +388,8 @@ def send_every_day_statistics(student_service: StudentService):
             if RECIPIENT_EMAIL:
                 print(f"{datetime.datetime.now()} Send every day report")
                 # TODO: send report
+                search_date = (datetime.datetime.now() - datetime.timedelta(days=1))
+                print(search_date)
                 update_state(last_every_day=time.time())
         else:
             time.sleep(REPORT_PERIOD_CHECK)
