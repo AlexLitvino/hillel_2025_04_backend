@@ -104,6 +104,8 @@ class Repository(AbstractRepository):
         with open(self.file_path, 'a', newline='') as csvfile:
             fieldnames = ['id', 'name', 'info', 'marks']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            if len(self.students) == 1:  # write headers if 1st student is added
+                writer.writeheader()
             writer.writerow({'id': key,
                              'name': student['name'],
                              'info': student['info'],
