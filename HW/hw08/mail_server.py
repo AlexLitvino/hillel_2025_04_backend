@@ -2,9 +2,6 @@ import smtplib
 from email.mime.text import MIMEText
 
 
-# ─────────────────────────────────────────────────────────
-# MAILING
-# ─────────────────────────────────────────────────────────
 class Message:
     def __init__(self, from_addr: str, subject: str, message: str) -> None:
         self.msg = MIMEText(message)
@@ -44,32 +41,3 @@ class SMTPService:
 
     def send(self, from_: str, to: str, message: Message) -> None:
         self.server.sendmail(msg=str(message), from_addr=from_, to_addrs=to)
-
-# ─────────────────────────────────────────────────────────
-# ENTRYPOINT
-# ─────────────────────────────────────────────────────────
-def main():
-    # I/O Operations
-    # ........................................
-    to = "john@email.com"
-
-    # Logic
-    # ........................................
-    user = User(email="internal_user@apple.com", role=Role.HR)
-    message = SupportMessage(
-        from_addr=user.email,
-        subject="iPhone black screen",
-        message="Hey John, Could you take some pictures of your screen?",
-    )
-    message_2 = HRMessage(
-        from_addr=user.email,
-        subject="iPhone black screen",
-        message="Hey John, Could you take some pictures of your screen?",
-    )
-
-    with SMTPService() as mailing:
-        mailing.send(from_=user.email, to=to, message=message)
-        mailing.send(from_=user.email, to=to, message=message_2)
-
-
-main()

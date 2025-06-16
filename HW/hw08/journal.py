@@ -1,14 +1,16 @@
+import csv
+import datetime
 import json
 import os.path
+import sys
 import time
 from abc import ABC, abstractmethod
-import csv
-from threading import Thread
 from pathlib import Path
-import sys
-import datetime
+from threading import Thread
 
 from colorama import Fore, init, Style
+
+from mail_server import Message, SMTPService
 
 REPORT_PERIOD_CHECK = 5  # time in seconds to check if periodic report should be sent
 EVERY_MONTH_PERIOD = 20 # 30 * 24 * 3600
@@ -18,7 +20,8 @@ STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove', 'grade', 'up
 AUXILIARY_COMMANDS = ('help', 'quit', 'email')
 COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
 
-EMAIL = None
+RECIPIENT_EMAIL = None
+SENDER_EMAIL = "reporting@digital.journal"
 
 # ######################################################################################################################
 # Infrastructure
@@ -340,12 +343,12 @@ def get_state(field):
         return json.load(f)[field]
 
 def update_email_handler():
-    global EMAIL
+    global RECIPIENT_EMAIL
     raw_id = input("Enter email to send reports to. Press enter to skip reporting: ").strip()
-    EMAIL = None if not raw_id else raw_id
+    RECIPIENT_EMAIL = None if not raw_id else raw_id
     answer = input(f"Would you like to update email to {raw_id}? [y|yes / n|no]: ").strip().lower()
     if answer in ('y', 'yes'):
-        update_state(email=EMAIL)
+        update_state(email=RECIPIENT_EMAIL)
         print_success(f"Email was updated\n")
     else:
         print_error('Action was cancelled\n')
@@ -360,10 +363,16 @@ def send_every_month_statistics(student_service: StudentService):
     while True:
         last_every_month = get_state('last_every_month')
         if time.time() - last_every_month > EVERY_MONTH_PERIOD:
-            if EMAIL:
+            if RECIPIENT_EMAIL:
                 print(f"{datetime.datetime.now()} Send every month report")
-                # TODO: send report
+                message = Message(
+                    from_addr=SENDER_EMAIL,
+                    subject=f"Digital Journal App - Monthly Report - {datetime.date.today()}",
+                    message=f"Today {datetime.date.today()}, {student_service.number_of_students()} student(s) are registered in Digital Journal App",
+                )
                 update_state(last_every_month=time.time())
+                with SMTPService() as mailing:
+                    mailing.send(from_=SENDER_EMAIL, to=RECIPIENT_EMAIL, message=message)
         else:
             time.sleep(REPORT_PERIOD_CHECK)
 
@@ -371,7 +380,7 @@ def send_every_day_statistics(student_service: StudentService):
     while True:
         last_every_day = get_state('last_every_day')
         if time.time() - last_every_day > EVERY_DAY_PERIOD:
-            if EMAIL:
+            if RECIPIENT_EMAIL:
                 print(f"{datetime.datetime.now()} Send every day report")
                 # TODO: send report
                 update_state(last_every_day=time.time())
@@ -404,7 +413,8 @@ def main():
         current_time = time.time()
         update_state(last_every_month=current_time, last_every_day=current_time)
     else:
-        email = get_state('email')
+        global RECIPIENT_EMAIL
+        RECIPIENT_EMAIL = get_state('email')
 
     Thread(target=send_every_month_statistics, args=(student_service,), daemon=True).start()
     Thread(target=send_every_day_statistics, args=(student_service,), daemon=True).start()
