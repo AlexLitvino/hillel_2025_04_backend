@@ -22,6 +22,7 @@ COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
 
 RECIPIENT_EMAIL = None
 SENDER_EMAIL = "reporting@digital.journal"
+STATE_LOCK = Lock()
 
 # ######################################################################################################################
 # Infrastructure
@@ -153,7 +154,7 @@ def parse_add_student_input(add_student_input: str):
             marks = None
         else:
             try:
-                marks = [int(mark) for mark in raw_marks.split(',')]
+                marks = [int(mark) for mark in raw_marks.split(',')]  # TODO: fix for new date_mark structure
             except ValueError:
                 return None
         return {'name': raw_name.strip(), 'marks': marks, 'info': raw_details.strip()}
@@ -331,19 +332,19 @@ def update_student_handler(student_service: StudentService):
 
 def update_state(**kwargs):
     """Updates state file with new values"""
-    with Lock():
+    with STATE_LOCK:
         if not os.path.exists(STATE_FILE):
             read_json = {}
         else:
             with open(STATE_FILE, 'r') as f:
-                read_json = json.load(f)  # TODO: json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0) when updating email
+                read_json = json.load(f)
         read_json.update(kwargs)
         with open(STATE_FILE, 'w') as f:
             json.dump(read_json, f)
 
 def get_state(field):
     """Returns field value from state file"""
-    with Lock():
+    with STATE_LOCK:
         with open(STATE_FILE, 'r') as f:
             return json.load(f)[field]
 
@@ -370,14 +371,14 @@ def send_every_month_statistics(student_service: StudentService):
         if time.time() - last_every_month > EVERY_MONTH_PERIOD:
             if RECIPIENT_EMAIL:
                 print(f"{datetime.datetime.now()} Send every month report")
-                message = Message(
-                    from_addr=SENDER_EMAIL,
-                    subject=f"Digital Journal App - Monthly Report - {datetime.date.today()}",
-                    message=f"Today {datetime.date.today()}, {student_service.number_of_students()} student(s) are registered in Digital Journal App",
-                )
+                # message = Message(
+                #     from_addr=SENDER_EMAIL,
+                #     subject=f"Digital Journal App - Monthly Report - {datetime.date.today()}",
+                #     message=f"Today {datetime.date.today()}, {student_service.number_of_students()} student(s) are registered in Digital Journal App",
+                # )
+                # with SMTPService() as mailing:
+                #     mailing.send(from_=SENDER_EMAIL, to=RECIPIENT_EMAIL, message=message)
                 update_state(last_every_month=time.time())
-                with SMTPService() as mailing:
-                    mailing.send(from_=SENDER_EMAIL, to=RECIPIENT_EMAIL, message=message)
         else:
             time.sleep(REPORT_PERIOD_CHECK)
 
@@ -388,13 +389,26 @@ def send_every_day_statistics(student_service: StudentService):
             if RECIPIENT_EMAIL:
                 print(f"{datetime.datetime.now()} Send every day report")
                 # TODO: send report
-                search_date = (datetime.datetime.now() - datetime.timedelta(days=1))
+                search_date = (datetime.date.today() - datetime.timedelta(days=1))
+
                 print(search_date)
+
+
+                students = student_service.get_students()
+                number_of_marks_for_period = 0
+                sum_of_marks_for_period = 0
+                for id, data in students.items():
+                    for date, mark in data['marks']:
+                        if date == search_date:
+                            number_of_marks_for_period += 1
+                            sum_of_marks_for_period += mark
+
+                print(f"{number_of_marks_for_period}, {sum_of_marks_for_period}, {sum_of_marks_for_period/number_of_marks_for_period}")
                 update_state(last_every_day=time.time())
         else:
             time.sleep(REPORT_PERIOD_CHECK)
 
-
+# TODO: When saving EMAIL in var it saves BEFORE saving file that could cause problems
 def main():
     init()  # colorama initialization
     help_handler()
