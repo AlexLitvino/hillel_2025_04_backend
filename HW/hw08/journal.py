@@ -99,7 +99,6 @@ class Repository(AbstractRepository):
                                  'info': student['info'],
                                  'marks': ','.join(f"{date_mark[0].strftime('%Y-%m-%d')}|{date_mark[1]}" for date_mark in student['marks'])})
 
-    # TODO: it shouldn't work if add student with marks
     def add_student(self, student: dict):
         key = self.get_next_id()
         self.students[key] = student
@@ -111,7 +110,7 @@ class Repository(AbstractRepository):
             writer.writerow({'id': key,
                              'name': student['name'],
                              'info': student['info'],
-                             'marks': ','.join([str(mark) for mark in student['marks']])})
+                             'marks': ','.join([f"{date_mark[0].strftime('%Y-%m-%d')}|{date_mark[1]}" for date_mark in student['marks']])})
 
     def get_all_students(self):
         self._read_storage()
@@ -154,7 +153,8 @@ def parse_add_student_input(add_student_input: str):
             marks = None
         else:
             try:
-                marks = [int(mark) for mark in raw_marks.split(',')]  # TODO: fix for new date_mark structure
+                breakpoint()
+                marks = [(datetime.date.fromisoformat(date_mark.split('|')[0]), int(date_mark.split('|')[1])) for date_mark in raw_marks.split(',')]
             except ValueError:
                 return None
         return {'name': raw_name.strip(), 'marks': marks, 'info': raw_details.strip()}
@@ -236,10 +236,11 @@ def search_student_handler(student_service: StudentService, raw_id: str):
 
 def add_student_handler(student_service: StudentService):
     ask_prompt = "Enter student's payload data using text template (name is obligatory field, details is optional field)\n" \
-                 "John Doe;1,2,3,4,5;Some details about John:\n"
+                 "John Doe;2025-01-01|4,2025-02-02|12;Some details about John:\n"
     add_student_input = input(ask_prompt).strip()
     parsed_student_data = parse_add_student_input(add_student_input)
     if parsed_student_data:
+        breakpoint()
         answer = input('Would you like to add new student? [y|yes / n|no]: ').strip().lower()
         if answer in ('y', 'yes'):
             student_service.add_student(parsed_student_data['name'], parsed_student_data['marks'], parsed_student_data['info'])
