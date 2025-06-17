@@ -154,7 +154,6 @@ def parse_add_student_input(add_student_input: str):
             marks = None
         else:
             try:
-                breakpoint()
                 marks = [(datetime.date.fromisoformat(date_mark.split('|')[0]), int(date_mark.split('|')[1])) for date_mark in raw_marks.split(',')]
             except ValueError:
                 return None
@@ -451,11 +450,15 @@ def send_every_day_statistics(student_service: StudentService):
                 for p in processes:
                     p.join()
 
-                average_mark = sum([sum_.value for sum_ in sum_of_marks]) / sum([num.value for num in number_of_marks])
+                try:
+                    average_mark = sum([sum_.value for sum_ in sum_of_marks]) / sum([num.value for num in number_of_marks])
+                    average_mark = f"{average_mark:.2f}"
+                except ZeroDivisionError:
+                    average_mark = None
                 end = time.perf_counter()
                 #print(f"DURATION: {end-start}")
                 send_email(f"Digital Journal App - Daily Report - {datetime.date.today()}",
-                           f"Average mark for yesterday ({datetime.date.today() - datetime.timedelta(days=1)}) is {average_mark:.2f}")
+                           f"Average mark for yesterday ({datetime.date.today() - datetime.timedelta(days=1)}) is {average_mark}")
                 update_state(last_every_day=time.time())
 
             """
