@@ -6,6 +6,7 @@ import sys
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
+from multiprocessing import Process, Value, cpu_count
 from threading import Thread, Lock
 
 from colorama import Fore, init, Style
@@ -166,6 +167,39 @@ def print_error(text):
 
 def print_success(text):
     print(Fore.GREEN + text + Style.RESET_ALL)
+
+def _average_calc_helper(students_dict, search_date, number_of_marks_ret, sum_of_marks_ret):
+    number_of_marks_for_period = 0
+    sum_of_marks_for_period = 0
+    for id, data in students_dict.items():
+        for date, mark in data['marks']:
+            if date == search_date:
+                number_of_marks_for_period += 1
+                sum_of_marks_for_period += mark
+    number_of_marks_ret.value = number_of_marks_for_period
+    sum_of_marks_ret.value = sum_of_marks_for_period
+    return number_of_marks_for_period, sum_of_marks_for_period
+
+def split_dict_into_chunks(original_dict, chunks):
+    """Splits dictionary into chunks"""
+    elements_in_chunk = (len(original_dict) // chunks) + 1
+    n = 0
+    new_dict = {}
+    for key, value in original_dict.items():
+        new_dict[key] = value
+        n += 1
+        if n % elements_in_chunk == 0 or n == len(original_dict):
+            yield new_dict
+            new_dict = {}
+
+def send_email(subject, message):
+    message = Message(
+        from_addr=SENDER_EMAIL,
+        subject=subject,
+        message=message,
+    )
+    with SMTPService() as mailing:
+        mailing.send(from_=SENDER_EMAIL, to=RECIPIENT_EMAIL, message=message)
 
 # ######################################################################################################################
 # CRUD
@@ -371,14 +405,8 @@ def send_every_month_statistics(student_service: StudentService):
         last_every_month = get_state('last_every_month')
         if time.time() - last_every_month > EVERY_MONTH_PERIOD:
             if RECIPIENT_EMAIL:
-                print(f"{datetime.datetime.now()} Send every month report")
-                # message = Message(
-                #     from_addr=SENDER_EMAIL,
-                #     subject=f"Digital Journal App - Monthly Report - {datetime.date.today()}",
-                #     message=f"Today {datetime.date.today()}, {student_service.number_of_students()} student(s) are registered in Digital Journal App",
-                # )
-                # with SMTPService() as mailing:
-                #     mailing.send(from_=SENDER_EMAIL, to=RECIPIENT_EMAIL, message=message)
+                send_email(f"Digital Journal App - Monthly Report - {datetime.date.today()}",
+                           f"Today {datetime.date.today()}, {student_service.number_of_students()} student(s) are registered in Digital Journal App")
                 update_state(last_every_month=time.time())
         else:
             time.sleep(REPORT_PERIOD_CHECK)
@@ -388,16 +416,11 @@ def send_every_day_statistics(student_service: StudentService):
         last_every_day = get_state('last_every_day')
         if time.time() - last_every_day > EVERY_DAY_PERIOD:
             if RECIPIENT_EMAIL:
-                print(f"{datetime.datetime.now()} Send every day report")
-                # TODO: send report
                 search_date = (datetime.date.today() - datetime.timedelta(days=1))
-
-                print(search_date)
-
-
                 students = student_service.get_students()
 
-                # # Calc with one process
+                # # Average calculation with one process (for comparison)
+                # start = time.perf_counter()
                 # number_of_marks_for_period = 0
                 # sum_of_marks_for_period = 0
                 # for id, data in students.items():
@@ -405,36 +428,46 @@ def send_every_day_statistics(student_service: StudentService):
                 #         if date == search_date:
                 #             number_of_marks_for_period += 1
                 #             sum_of_marks_for_period += mark
-                # print(f"{number_of_marks_for_period}, {sum_of_marks_for_period}, {sum_of_marks_for_period / number_of_marks_for_period}")
+                # end = time.perf_counter()
+                # print(f"DURATION: {end-start}")
 
+                # Average calculation with several processes
+                start = time.perf_counter()
+                processes = []
+                number_of_marks = []
+                sum_of_marks = []
+                MAX_PROCESSES = cpu_count()
 
-                def _average_calc_helper(students_dict):
-                    number_of_marks_for_period = 0
-                    sum_of_marks_for_period = 0
-                    for id, data in students.items():
-                        for date, mark in data['marks']:
-                            if date == search_date:
-                                number_of_marks_for_period += 1
-                                sum_of_marks_for_period += mark
-                    print(number_of_marks_for_period, sum_of_marks_for_period)
-                    return number_of_marks_for_period, sum_of_marks_for_period
+                for chunk in split_dict_into_chunks(students, MAX_PROCESSES):
+                    number_of_marks_ret = Value('i')
+                    number_of_marks.append(number_of_marks_ret)
+                    sum_of_marks_ret = Value('i')
+                    sum_of_marks.append(sum_of_marks_ret)
 
-                from concurrent.futures import ProcessPoolExecutor
-                with ProcessPoolExecutor(4) as executor:
-                    # create a set of word hashes
-                    r = executor.map(_average_calc_helper, students)
+                    p = Process(target=_average_calc_helper, args=(chunk, search_date, number_of_marks_ret, sum_of_marks_ret))
+                    p.start()
+                    processes.append(p)
 
+                for p in processes:
+                    p.join()
 
-                # for i in r:
-                #     print(i)
-                breakpoint()
-
-                print(f"{number_of_marks_for_period}, {sum_of_marks_for_period}, {sum_of_marks_for_period/number_of_marks_for_period}")
+                average_mark = sum([sum_.value for sum_ in sum_of_marks]) / sum([num.value for num in number_of_marks])
+                end = time.perf_counter()
+                #print(f"DURATION: {end-start}")
+                send_email(f"Digital Journal App - Daily Report - {datetime.date.today()}",
+                           f"Average mark for yesterday ({datetime.date.today() - datetime.timedelta(days=1)}) is {average_mark:.2f}")
                 update_state(last_every_day=time.time())
+
+            """
+            Users                1000                   1000_000
+            One process         0.00040449993684887886  0.2397951000602916
+            CPU# processes      0.7411272999597713      9.727466400014237
+            """
+
         else:
             time.sleep(REPORT_PERIOD_CHECK)
 
-# TODO: When saving EMAIL in var it saves BEFORE saving file that could cause problems
+
 def main():
     init()  # colorama initialization
     help_handler()
