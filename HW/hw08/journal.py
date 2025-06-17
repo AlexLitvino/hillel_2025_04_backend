@@ -352,9 +352,9 @@ def get_state(field):
 def update_email_handler():
     global RECIPIENT_EMAIL
     raw_id = input("Enter email to send reports to. Press enter to skip reporting: ").strip()
-    RECIPIENT_EMAIL = None if not raw_id else raw_id
     answer = input(f"Would you like to update email to {raw_id}? [y|yes / n|no]: ").strip().lower()
     if answer in ('y', 'yes'):
+        RECIPIENT_EMAIL = None if not raw_id else raw_id
         update_state(email=RECIPIENT_EMAIL)
         print_success(f"Email was updated\n")
     else:
@@ -396,13 +396,38 @@ def send_every_day_statistics(student_service: StudentService):
 
 
                 students = student_service.get_students()
-                number_of_marks_for_period = 0
-                sum_of_marks_for_period = 0
-                for id, data in students.items():
-                    for date, mark in data['marks']:
-                        if date == search_date:
-                            number_of_marks_for_period += 1
-                            sum_of_marks_for_period += mark
+
+                # # Calc with one process
+                # number_of_marks_for_period = 0
+                # sum_of_marks_for_period = 0
+                # for id, data in students.items():
+                #     for date, mark in data['marks']:
+                #         if date == search_date:
+                #             number_of_marks_for_period += 1
+                #             sum_of_marks_for_period += mark
+                # print(f"{number_of_marks_for_period}, {sum_of_marks_for_period}, {sum_of_marks_for_period / number_of_marks_for_period}")
+
+
+                def _average_calc_helper(students_dict):
+                    number_of_marks_for_period = 0
+                    sum_of_marks_for_period = 0
+                    for id, data in students.items():
+                        for date, mark in data['marks']:
+                            if date == search_date:
+                                number_of_marks_for_period += 1
+                                sum_of_marks_for_period += mark
+                    print(number_of_marks_for_period, sum_of_marks_for_period)
+                    return number_of_marks_for_period, sum_of_marks_for_period
+
+                from concurrent.futures import ProcessPoolExecutor
+                with ProcessPoolExecutor(4) as executor:
+                    # create a set of word hashes
+                    r = executor.map(_average_calc_helper, students)
+
+
+                # for i in r:
+                #     print(i)
+                breakpoint()
 
                 print(f"{number_of_marks_for_period}, {sum_of_marks_for_period}, {sum_of_marks_for_period/number_of_marks_for_period}")
                 update_state(last_every_day=time.time())
