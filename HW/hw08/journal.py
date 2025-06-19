@@ -1,15 +1,29 @@
-from abc import ABC, abstractmethod
 import csv
-from pathlib import Path
+import datetime
+import json
+import os.path
 import sys
+import time
+from abc import ABC, abstractmethod
+from pathlib import Path
+from multiprocessing import Process, Value, cpu_count
+from threading import Thread, Lock
 
 from colorama import Fore, init, Style
 
+from mail_server import Message, SMTPService
 
+REPORT_PERIOD_CHECK = 5  # time in seconds to check if periodic report should be sent
+EVERY_MONTH_PERIOD = 20 # 30 * 24 * 3600
+EVERY_DAY_PERIOD = 10 # 24 * 3600
+STATE_FILE = 'state.json'  # file to save timestamps for sending reports
 STUDENT_MANAGEMENT_COMMANDS = ('add', 'show all', 'show', 'remove', 'grade', 'update')
-AUXILIARY_COMMANDS = ('help', 'quit')
+AUXILIARY_COMMANDS = ('help', 'quit', 'email')
 COMMAND_LIST = ', '.join((*STUDENT_MANAGEMENT_COMMANDS, *AUXILIARY_COMMANDS))
 
+RECIPIENT_EMAIL = None
+SENDER_EMAIL = "reporting@digital.journal"
+STATE_LOCK = Lock()
 
 # ######################################################################################################################
 # Infrastructure
@@ -46,7 +60,7 @@ class AbstractRepository(ABC):
         pass
 
     @abstractmethod
-    def add_mark(self, id_: int, mark: int):
+    def add_mark(self, id_: int, mark: int, date: datetime.date):
         pass
 
 
@@ -70,7 +84,9 @@ class Repository(AbstractRepository):
             for row in reader:
                 self.students[int(row['id'])] = {'name': row['name'],
                                                  'info': row['info'],
-                                                 'marks': [int(mark) for mark in row['marks'].split(',') if mark]}
+                                                 'marks': [(datetime.date.fromisoformat(date_mark.split("|")[0]),
+                                                            int(date_mark.split("|")[1]))
+                                                           for date_mark in row['marks'].split(',') if date_mark]}
 
     def _write_storage(self):
         with open(self.file_path, 'w', newline='') as csvfile:
@@ -82,7 +98,7 @@ class Repository(AbstractRepository):
                 writer.writerow({'id': key,
                                  'name': student['name'],
                                  'info': student['info'],
-                                 'marks': ','.join(str(mark) for mark in student['marks'])})
+                                 'marks': ','.join(f"{date_mark[0].strftime('%Y-%m-%d')}|{date_mark[1]}" for date_mark in student['marks'])})
 
     def add_student(self, student: dict):
         key = self.get_next_id()
@@ -90,10 +106,12 @@ class Repository(AbstractRepository):
         with open(self.file_path, 'a', newline='') as csvfile:
             fieldnames = ['id', 'name', 'info', 'marks']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            if len(self.students) == 1:  # write headers if 1st student is added
+                writer.writeheader()
             writer.writerow({'id': key,
                              'name': student['name'],
                              'info': student['info'],
-                             'marks': ','.join([str(mark) for mark in student['marks']])})
+                             'marks': ','.join([f"{date_mark[0].strftime('%Y-%m-%d')}|{date_mark[1]}" for date_mark in student['marks']])})
 
     def get_all_students(self):
         self._read_storage()
@@ -111,8 +129,8 @@ class Repository(AbstractRepository):
         del self.students[id_]
         self._write_storage()
 
-    def add_mark(self, id_: int, mark: int):
-        self.students[id_]['marks'].append(mark)
+    def add_mark(self, id_: int, mark: int, date: datetime.date):
+        self.students[id_]['marks'].append((date, mark))
         self._write_storage()
 
     def __len__(self):
@@ -121,10 +139,13 @@ class Repository(AbstractRepository):
 # ######################################################################################################################
 # Helpers
 # ######################################################################################################################
-def get_string_of_marks(student: dict):
-    """Returns string of student's marks separated by space"""
-    return " ".join([str(i) for i in student["marks"]])
+def get_string_of_marks_to_display_one_student(student: dict):
+    """Returns string of student's marks with dates on new lines"""
+    return " ".join([f'\n{date_mark[0].strftime("%Y-%m-%d")}: {date_mark[1]}' for date_mark in student["marks"]])
 
+def get_string_of_marks_to_display_many_students(student: dict):
+    """Returns string of student's marks separated by space"""
+    return " ".join([str(date_mark[1]) for date_mark in student["marks"]])
 
 def parse_add_student_input(add_student_input: str):
     if add_student_input.count(';') == 2:
@@ -133,7 +154,7 @@ def parse_add_student_input(add_student_input: str):
             marks = None
         else:
             try:
-                marks = [int(mark) for mark in raw_marks.split(',')]
+                marks = [(datetime.date.fromisoformat(date_mark.split('|')[0]), int(date_mark.split('|')[1])) for date_mark in raw_marks.split(',')]
             except ValueError:
                 return None
         return {'name': raw_name.strip(), 'marks': marks, 'info': raw_details.strip()}
@@ -145,6 +166,39 @@ def print_error(text):
 
 def print_success(text):
     print(Fore.GREEN + text + Style.RESET_ALL)
+
+def _average_calc_helper(students_dict, search_date, number_of_marks_ret, sum_of_marks_ret):
+    number_of_marks_for_period = 0
+    sum_of_marks_for_period = 0
+    for id, data in students_dict.items():
+        for date, mark in data['marks']:
+            if date == search_date:
+                number_of_marks_for_period += 1
+                sum_of_marks_for_period += mark
+    number_of_marks_ret.value = number_of_marks_for_period
+    sum_of_marks_ret.value = sum_of_marks_for_period
+    return number_of_marks_for_period, sum_of_marks_for_period
+
+def split_dict_into_chunks(original_dict, chunks):
+    """Splits dictionary into chunks"""
+    elements_in_chunk = (len(original_dict) // chunks) + 1
+    n = 0
+    new_dict = {}
+    for key, value in original_dict.items():
+        new_dict[key] = value
+        n += 1
+        if n % elements_in_chunk == 0 or n == len(original_dict):
+            yield new_dict
+            new_dict = {}
+
+def send_email(subject, message):
+    message = Message(
+        from_addr=SENDER_EMAIL,
+        subject=subject,
+        message=message,
+    )
+    with SMTPService() as mailing:
+        mailing.send(from_=SENDER_EMAIL, to=RECIPIENT_EMAIL, message=message)
 
 # ######################################################################################################################
 # CRUD
@@ -169,8 +223,8 @@ class StudentService:
     def remove_student(self, id_: int):
         self.repository.delete_student(id_)
 
-    def add_mark(self, id_: int, mark: int):
-        self.repository.add_mark(id_, mark)
+    def add_mark(self, id_: int, mark: int, date: datetime.date):
+        self.repository.add_mark(id_, mark, date)
 
     def update_student(self, id_: int, name: str|None=None, info: str|None=None):
         data = {}
@@ -215,10 +269,11 @@ def search_student_handler(student_service: StudentService, raw_id: str):
 
 def add_student_handler(student_service: StudentService):
     ask_prompt = "Enter student's payload data using text template (name is obligatory field, details is optional field)\n" \
-                 "John Doe;1,2,3,4,5;Some details about John:\n"
+                 "John Doe;2025-01-01|4,2025-02-02|12;Some details about John:\n"
     add_student_input = input(ask_prompt).strip()
     parsed_student_data = parse_add_student_input(add_student_input)
     if parsed_student_data:
+        breakpoint()
         answer = input('Would you like to add new student? [y|yes / n|no]: ').strip().lower()
         if answer in ('y', 'yes'):
             student_service.add_student(parsed_student_data['name'], parsed_student_data['marks'], parsed_student_data['info'])
@@ -250,7 +305,7 @@ def show_student_info_handler(student_service: StudentService):
         student_service.get_student_info(id_)
         print('===================\n'
               f'{student["name"]}\n'
-              f'Marks: {get_string_of_marks(student)}\n'
+              f'Marks: {get_string_of_marks_to_display_one_student(student)}\n'
               f'Information: {student["info"]}\n')
 
 
@@ -259,7 +314,7 @@ def show_students_handler(student_service: StudentService):
         for key, student in student_service.get_students().items():
             print('===================\n'
                   f'{key}. {student["name"]}\n'
-                  f'Marks: {get_string_of_marks(student)}')
+                  f'Marks: {get_string_of_marks_to_display_many_students(student)}')
     else:
         print("No students are added at the moment")
     print()
@@ -277,8 +332,8 @@ def grade_student_handler(student_service: StudentService):
 
             answer = input('Would you like to add new mark for student? [y|yes / n|no]: ').strip().lower()
             if answer in ('y', 'yes'):
-                student_service.add_mark(id_, mark)
-                print_success(f"Updated marks for {student['name']}: {get_string_of_marks(student)}\n")
+                student_service.add_mark(id_, mark, datetime.date.today())
+                print_success(f"Updated marks for {student['name']}: {get_string_of_marks_to_display_one_student(student)}\n")
             else:
                 print_error('Action was cancelled\n')
 
@@ -309,6 +364,113 @@ def update_student_handler(student_service: StudentService):
             print_error('Action was cancelled\n')
 
 
+def update_state(**kwargs):
+    """Updates state file with new values"""
+    with STATE_LOCK:
+        if not os.path.exists(STATE_FILE):
+            read_json = {}
+        else:
+            with open(STATE_FILE, 'r') as f:
+                read_json = json.load(f)
+        read_json.update(kwargs)
+        with open(STATE_FILE, 'w') as f:
+            json.dump(read_json, f)
+
+def get_state(field):
+    """Returns field value from state file"""
+    with STATE_LOCK:
+        with open(STATE_FILE, 'r') as f:
+            return json.load(f)[field]
+
+def update_email_handler():
+    global RECIPIENT_EMAIL
+    raw_id = input("Enter email to send reports to. Press enter to skip reporting: ").strip()
+    answer = input(f"Would you like to update email to {raw_id}? [y|yes / n|no]: ").strip().lower()
+    if answer in ('y', 'yes'):
+        RECIPIENT_EMAIL = None if not raw_id else raw_id
+        update_state(email=RECIPIENT_EMAIL)
+        print_success(f"Email was updated\n")
+    else:
+        print_error('Action was cancelled\n')
+
+    # processing case when user cancels saving email for the 1st time
+    try:
+        get_state('email')
+    except FileNotFoundError:
+        update_state(email=None)
+
+def send_every_month_statistics(student_service: StudentService):
+    while True:
+        last_every_month = get_state('last_every_month')
+        if time.time() - last_every_month > EVERY_MONTH_PERIOD:
+            if RECIPIENT_EMAIL:
+                send_email(f"Digital Journal App - Monthly Report - {datetime.date.today()}",
+                           f"Today {datetime.date.today()}, {student_service.number_of_students()} student(s) are registered in Digital Journal App")
+                update_state(last_every_month=time.time())
+        else:
+            time.sleep(REPORT_PERIOD_CHECK)
+
+def send_every_day_statistics(student_service: StudentService):
+    while True:
+        last_every_day = get_state('last_every_day')
+        if time.time() - last_every_day > EVERY_DAY_PERIOD:
+            if RECIPIENT_EMAIL:
+                search_date = (datetime.date.today() - datetime.timedelta(days=1))
+                students = student_service.get_students()
+
+                # # Average calculation with one process (for comparison)
+                # start = time.perf_counter()
+                # number_of_marks_for_period = 0
+                # sum_of_marks_for_period = 0
+                # for id, data in students.items():
+                #     for date, mark in data['marks']:
+                #         if date == search_date:
+                #             number_of_marks_for_period += 1
+                #             sum_of_marks_for_period += mark
+                # end = time.perf_counter()
+                # print(f"DURATION: {end-start}")
+
+                # Average calculation with several processes
+                start = time.perf_counter()
+                processes = []
+                number_of_marks = []
+                sum_of_marks = []
+                MAX_PROCESSES = cpu_count()
+
+                for chunk in split_dict_into_chunks(students, MAX_PROCESSES):
+                    number_of_marks_ret = Value('i')
+                    number_of_marks.append(number_of_marks_ret)
+                    sum_of_marks_ret = Value('i')
+                    sum_of_marks.append(sum_of_marks_ret)
+
+                    p = Process(target=_average_calc_helper, args=(chunk, search_date, number_of_marks_ret, sum_of_marks_ret))
+                    p.start()
+                    processes.append(p)
+
+                for p in processes:
+                    p.join()
+
+                try:
+                    average_mark = sum([sum_.value for sum_ in sum_of_marks]) / sum([num.value for num in number_of_marks])
+                    average_mark = f"{average_mark:.2f}"
+                except ZeroDivisionError:
+                    average_mark = None
+                end = time.perf_counter()
+                #print(f"DURATION: {end-start}")
+                send_email(f"Digital Journal App - Daily Report - {datetime.date.today()}",
+                           f"Average mark for yesterday ({datetime.date.today() - datetime.timedelta(days=1)}) is {average_mark}")
+                update_state(last_every_day=time.time())
+
+            """
+            Users                1000                   1000_000
+            One process         0.00040449993684887886  0.2397951000602916
+            CPU# processes      0.7411272999597713      9.727466400014237
+            """
+
+        else:
+            time.sleep(REPORT_PERIOD_CHECK)
+
+
 def main():
     init()  # colorama initialization
     help_handler()
@@ -328,6 +490,17 @@ def main():
     repository = Repository(storage_file_path)
     student_service = StudentService(repository)
 
+    # Create state file with current time if it doesn't exist
+    if not os.path.exists(STATE_FILE):
+        update_email_handler()
+        current_time = time.time()
+        update_state(last_every_month=current_time, last_every_day=current_time)
+    else:
+        global RECIPIENT_EMAIL
+        RECIPIENT_EMAIL = get_state('email')
+
+    Thread(target=send_every_month_statistics, args=(student_service,), daemon=True).start()
+    Thread(target=send_every_day_statistics, args=(student_service,), daemon=True).start()
 
     while True:
         command = input(f"Enter one of the commands: {COMMAND_LIST}: ").strip().lower()
@@ -349,6 +522,8 @@ def main():
                 grade_student_handler(student_service)
             case 'update':
                 update_student_handler(student_service)
+            case 'email':
+                update_email_handler()
             case _:
                 print_error("Unknown command\n")
 
