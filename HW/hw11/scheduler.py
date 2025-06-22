@@ -60,8 +60,20 @@ class Scheduler:
         while True:
             order = self.shipping_orders.get(True)
 
-            # TODO:  track how many orders are currently in processing for each provider. Based on that, instead of selecting a random provider you can take the one, that has LESS orders in processing to secure the balance
-            delivery_provider: DeliveryProvider = random.choice([Uklon, Uber])()
+            def _get_delivery_provider():
+                """Returns less loaded delivery provider"""
+                uklon_active_shipping = Uklon.NUMBER_OF_ACTIVE_SHIPPING
+                uber_active_shipping = Uber.NUMBER_OF_ACTIVE_SHIPPING
+                #print(f"Uklon = {uklon_active_shipping}, Uber = {uber_active_shipping}")
+
+                if uklon_active_shipping < uber_active_shipping:
+                    return Uklon()
+                elif uber_active_shipping < uklon_active_shipping:
+                    return Uber()
+                else:
+                    return random.choice([Uklon, Uber])()
+
+            delivery_provider: DeliveryProvider = _get_delivery_provider()
             delivery_thread = threading.Thread(target=delivery_provider.ship, args=(order,))
             delivery_thread.start()
 
@@ -72,6 +84,7 @@ class Scheduler:
 
 
 class DeliveryProvider(ABC):
+    NUMBER_OF_ACTIVE_SHIPPING = 0
 
     @abstractmethod
     def ship(self, order: OrderRequestBody):
@@ -81,15 +94,19 @@ class DeliveryProvider(ABC):
 class Uklon(DeliveryProvider):
 
     def ship(self, order: OrderRequestBody):
+        Uklon.NUMBER_OF_ACTIVE_SHIPPING += 1
         time.sleep(5)
         print(f"\tOrder {order[0]} is delivered by {self.__class__.__name__}")
+        Uklon.NUMBER_OF_ACTIVE_SHIPPING -= 1
 
 
 class Uber(DeliveryProvider):
 
     def ship(self, order: OrderRequestBody):
+        Uklon.NUMBER_OF_ACTIVE_SHIPPING += 1
         time.sleep(3)
         print(f"\tOrder {order[0]} is delivered by {self.__class__.__name__}")
+        Uklon.NUMBER_OF_ACTIVE_SHIPPING -= 1
 
 
 def main():
