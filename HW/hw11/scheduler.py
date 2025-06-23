@@ -103,10 +103,10 @@ class Uklon(DeliveryProvider):
 class Uber(DeliveryProvider):
 
     def ship(self, order: OrderRequestBody):
-        Uklon.NUMBER_OF_ACTIVE_SHIPPING += 1
+        Uber.NUMBER_OF_ACTIVE_SHIPPING += 1
         time.sleep(3)
         print(f"\tOrder {order[0]} is delivered by {self.__class__.__name__}")
-        Uklon.NUMBER_OF_ACTIVE_SHIPPING -= 1
+        Uber.NUMBER_OF_ACTIVE_SHIPPING -= 1
 
 
 def main():
