@@ -95,4 +95,5 @@ Extend it according to the next requirements:
 
 Optional improvements:
 
-- if you wanna optimize your application you would need to track how many orders are currently in processing for each provider. Based on that, instead of selecting a random provider you can take the one, that has LESS orders in processing to secure the balance.
+- if you wanna optimize your application you would need to track how many orders are currently in processing for each provider. 
+Based on that, instead of selecting a random provider you can take the one, that has LESS orders in processing to secure the balance.
