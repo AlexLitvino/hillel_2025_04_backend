@@ -9,3 +9,4 @@ colorama
 aiohttp
 fastapi
 openai
+psycopg
