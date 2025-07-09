@@ -9,4 +9,4 @@ colorama
 aiohttp
 fastapi
 openai
-psycopg
+psycopg[binary]
