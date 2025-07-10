@@ -35,9 +35,12 @@ quantity integer not null check (quantity > 0)
 
 
 """
-1. Why not add create to constructor?
-2. Should delete raise exception if no such id
-3. How to implement filter with >,<,like etc
-4. What if several items will be returned in get? We use only first
-5. Order has price > 0, and OrderItem has order_id not null. What should be created first?
+Questions to ORM
+1. Should be table creation in code, make manually or by sql script? 
+2. Why not add create to constructor?
+3. Should delete raise exception if no such id
+4. How to implement filter with >,<,like etc
+5. What if several items will be returned in get? We use only first
+6. Order has price > 0, and OrderItem has order_id not null. What should be created first?
+7. How to process several tables in code (JOINs, sub-queries)?
 """
